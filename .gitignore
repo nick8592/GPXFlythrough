@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+*.egg
+
+# TypeScript / Node
+node_modules/
+renderer/dist/
+renderer/.vite/
+
+# Video export artifacts
+*.tmp.mp4
+frames/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project
+.omo/
+.codegraph/
