@@ -278,26 +278,28 @@ def minimal_track() -> TrackData:
         activity_type="Hiking",
         time=datetime(2025, 1, 15, 8, 0, 0, tzinfo=UTC),
         segments=(
-            TrackSegment(points=(
-                TrackPoint(
-                    latitude=Latitude(25.0330),
-                    longitude=Longitude(121.5650),
-                    elevation=Meters(120.0),
-                    time=datetime(2025, 1, 15, 8, 0, 0, tzinfo=UTC),
-                ),
-                TrackPoint(
-                    latitude=Latitude(25.0335),
-                    longitude=Longitude(121.5655),
-                    elevation=Meters(125.0),
-                    time=datetime(2025, 1, 15, 8, 1, 0, tzinfo=UTC),
-                ),
-                TrackPoint(
-                    latitude=Latitude(25.0340),
-                    longitude=Longitude(121.5660),
-                    elevation=Meters(130.0),
-                    time=datetime(2025, 1, 15, 8, 2, 0, tzinfo=UTC),
-                ),
-            )),
+            TrackSegment(
+                points=(
+                    TrackPoint(
+                        latitude=Latitude(25.0330),
+                        longitude=Longitude(121.5650),
+                        elevation=Meters(120.0),
+                        time=datetime(2025, 1, 15, 8, 0, 0, tzinfo=UTC),
+                    ),
+                    TrackPoint(
+                        latitude=Latitude(25.0335),
+                        longitude=Longitude(121.5655),
+                        elevation=Meters(125.0),
+                        time=datetime(2025, 1, 15, 8, 1, 0, tzinfo=UTC),
+                    ),
+                    TrackPoint(
+                        latitude=Latitude(25.0340),
+                        longitude=Longitude(121.5660),
+                        elevation=Meters(130.0),
+                        time=datetime(2025, 1, 15, 8, 2, 0, tzinfo=UTC),
+                    ),
+                )
+            ),
         ),
     )
 
@@ -324,28 +326,30 @@ def track_with_extensions() -> TrackData:
         activity_type="Running",
         time=datetime(2025, 1, 15, 8, 0, 0, tzinfo=UTC),
         segments=(
-            TrackSegment(points=(
-                TrackPoint(
-                    latitude=Latitude(25.0330),
-                    longitude=Longitude(121.5650),
-                    elevation=Meters(120.0),
-                    time=datetime(2025, 1, 15, 8, 0, 0, tzinfo=UTC),
-                    speed=MetersPerSecond(2.8),
-                    heart_rate=BPM(145),
-                    cadence=RPM(85),
-                    temperature=Celsius(28.5),
-                ),
-                TrackPoint(
-                    latitude=Latitude(25.0335),
-                    longitude=Longitude(121.5655),
-                    elevation=Meters(125.0),
-                    time=datetime(2025, 1, 15, 8, 1, 0, tzinfo=UTC),
-                    speed=MetersPerSecond(3.1),
-                    heart_rate=BPM(152),
-                    cadence=RPM(88),
-                    temperature=Celsius(29.0),
-                ),
-            )),
+            TrackSegment(
+                points=(
+                    TrackPoint(
+                        latitude=Latitude(25.0330),
+                        longitude=Longitude(121.5650),
+                        elevation=Meters(120.0),
+                        time=datetime(2025, 1, 15, 8, 0, 0, tzinfo=UTC),
+                        speed=MetersPerSecond(2.8),
+                        heart_rate=BPM(145),
+                        cadence=RPM(85),
+                        temperature=Celsius(28.5),
+                    ),
+                    TrackPoint(
+                        latitude=Latitude(25.0335),
+                        longitude=Longitude(121.5655),
+                        elevation=Meters(125.0),
+                        time=datetime(2025, 1, 15, 8, 1, 0, tzinfo=UTC),
+                        speed=MetersPerSecond(3.1),
+                        heart_rate=BPM(152),
+                        cadence=RPM(88),
+                        temperature=Celsius(29.0),
+                    ),
+                )
+            ),
         ),
     )
 
@@ -385,19 +389,21 @@ def track_none_elevation() -> TrackData:
         activity_type="Hiking",
         time=None,
         segments=(
-            TrackSegment(points=(
-                TrackPoint(
-                    latitude=Latitude(25.0330),
-                    longitude=Longitude(121.5650),
-                    elevation=None,
-                    time=datetime(2025, 1, 15, 8, 0, 0, tzinfo=UTC),
-                ),
-                TrackPoint(
-                    latitude=Latitude(25.0335),
-                    longitude=Longitude(121.5655),
-                    elevation=None,
-                    time=datetime(2025, 1, 15, 8, 1, 0, tzinfo=UTC),
-                ),
-            )),
+            TrackSegment(
+                points=(
+                    TrackPoint(
+                        latitude=Latitude(25.0330),
+                        longitude=Longitude(121.5650),
+                        elevation=None,
+                        time=datetime(2025, 1, 15, 8, 0, 0, tzinfo=UTC),
+                    ),
+                    TrackPoint(
+                        latitude=Latitude(25.0335),
+                        longitude=Longitude(121.5655),
+                        elevation=None,
+                        time=datetime(2025, 1, 15, 8, 1, 0, tzinfo=UTC),
+                    ),
+                )
+            ),
         ),
     )

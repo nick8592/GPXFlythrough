@@ -42,7 +42,8 @@ class TestToJson:
     """Tests for JSON serialization."""
 
     def test_produces_valid_json_when_track_data(
-        self, minimal_track: TrackData,
+        self,
+        minimal_track: TrackData,
     ) -> None:
         """Given a TrackData, to_json returns valid JSON bytes."""
         result = to_json(minimal_track)
@@ -51,7 +52,8 @@ class TestToJson:
         assert isinstance(parsed, dict)
 
     def test_correct_structure_when_track_data(
-        self, minimal_track: TrackData,
+        self,
+        minimal_track: TrackData,
     ) -> None:
         """Given a TrackData, JSON has name, segments, and waypoints keys."""
         parsed = _loads(to_json(minimal_track))
@@ -60,21 +62,24 @@ class TestToJson:
         assert "waypoints" in parsed
 
     def test_name_matches_when_track_data(
-        self, minimal_track: TrackData,
+        self,
+        minimal_track: TrackData,
     ) -> None:
         """Given a TrackData named 'Test Hike', JSON name equals 'Test Hike'."""
         parsed = _loads(to_json(minimal_track))
         assert parsed["name"] == "Test Hike"
 
     def test_activity_type_included_when_track_data(
-        self, minimal_track: TrackData,
+        self,
+        minimal_track: TrackData,
     ) -> None:
         """Given a TrackData with activity_type, JSON includes it."""
         parsed = _loads(to_json(minimal_track))
         assert parsed["activity_type"] == "Hiking"
 
     def test_segments_count_when_track_data(
-        self, minimal_track: TrackData,
+        self,
+        minimal_track: TrackData,
     ) -> None:
         """Given a TrackData with 1 segment, JSON has 1 segment."""
         parsed = _loads(to_json(minimal_track))
@@ -82,7 +87,8 @@ class TestToJson:
         assert len(segments) == 1
 
     def test_points_in_segment_when_track_data(
-        self, minimal_track: TrackData,
+        self,
+        minimal_track: TrackData,
     ) -> None:
         """Given a TrackData with 3 points, JSON segment has 3 points."""
         parsed = _loads(to_json(minimal_track))
@@ -92,14 +98,16 @@ class TestToJson:
         assert len(points) == 3
 
     def test_includes_stats_when_sanitized_track(
-        self, clean_sanitized_track: SanitizedTrack,
+        self,
+        clean_sanitized_track: SanitizedTrack,
     ) -> None:
         """Given a SanitizedTrack, JSON includes a stats key."""
         parsed = _loads(to_json(clean_sanitized_track))
         assert "stats" in parsed
 
     def test_stats_values_when_sanitized_track(
-        self, clean_sanitized_track: SanitizedTrack,
+        self,
+        clean_sanitized_track: SanitizedTrack,
     ) -> None:
         """Given a SanitizedTrack with clean data, stats show zero changes."""
         parsed = _loads(to_json(clean_sanitized_track))
@@ -109,14 +117,16 @@ class TestToJson:
         assert stats["gaps_detected"] == 0
 
     def test_no_stats_key_when_plain_track_data(
-        self, minimal_track: TrackData,
+        self,
+        minimal_track: TrackData,
     ) -> None:
         """Given a plain TrackData (not SanitizedTrack), JSON has no stats key."""
         parsed = _loads(to_json(minimal_track))
         assert "stats" not in parsed
 
     def test_extensions_included_when_present(
-        self, track_with_extensions: TrackData,
+        self,
+        track_with_extensions: TrackData,
     ) -> None:
         """Given a track with extensions, JSON points include hr/cad/speed/temp."""
         parsed = _loads(to_json(track_with_extensions))
@@ -137,14 +147,16 @@ class TestToGeojson:
     """Tests for GeoJSON serialization."""
 
     def test_produces_valid_geojson_when_track_data(
-        self, minimal_track: TrackData,
+        self,
+        minimal_track: TrackData,
     ) -> None:
         """Given a TrackData, to_geojson returns a valid GeoJSON FeatureCollection."""
         parsed = _loads(to_geojson(minimal_track))
         assert parsed["type"] == "FeatureCollection"
 
     def test_features_present_when_track_data(
-        self, minimal_track: TrackData,
+        self,
+        minimal_track: TrackData,
     ) -> None:
         """Given a TrackData, GeoJSON has a features array."""
         parsed = _loads(to_geojson(minimal_track))
@@ -152,7 +164,8 @@ class TestToGeojson:
         assert len(features) >= 1
 
     def test_linestring_feature_when_track_segment(
-        self, minimal_track: TrackData,
+        self,
+        minimal_track: TrackData,
     ) -> None:
         """Given a TrackData with a segment, GeoJSON feature is a LineString."""
         parsed = _loads(to_geojson(minimal_track))
@@ -163,7 +176,8 @@ class TestToGeojson:
         assert geometry["type"] == "LineString"
 
     def test_point_feature_when_waypoints(
-        self, track_with_waypoints: TrackData,
+        self,
+        track_with_waypoints: TrackData,
     ) -> None:
         """Given a TrackData with waypoints, GeoJSON has Point features."""
         parsed = _loads(to_geojson(track_with_waypoints))
@@ -177,7 +191,8 @@ class TestToGeojson:
         assert len(point_features) == 2
 
     def test_coordinates_lon_lat_order_when_track(
-        self, minimal_track: TrackData,
+        self,
+        minimal_track: TrackData,
     ) -> None:
         """Given a TrackData, GeoJSON coordinates follow [lon, lat] order."""
         parsed = _loads(to_geojson(minimal_track))
@@ -191,7 +206,8 @@ class TestToGeojson:
         assert first_coord[1] == pytest.approx(25.0330, abs=0.001)
 
     def test_coordinates_lon_lat_ele_order_when_elevated(
-        self, minimal_track: TrackData,
+        self,
+        minimal_track: TrackData,
     ) -> None:
         """Given a TrackData with elevation, GeoJSON coordinates are [lon, lat, ele]."""
         parsed = _loads(to_geojson(minimal_track))
@@ -204,7 +220,8 @@ class TestToGeojson:
         assert first_coord[2] == pytest.approx(120.0, abs=0.1)
 
     def test_two_position_coordinates_when_none_elevation(
-        self, track_none_elevation: TrackData,
+        self,
+        track_none_elevation: TrackData,
     ) -> None:
         """Given points with None elevation, GeoJSON coordinates have 2 positions."""
         parsed = _loads(to_geojson(track_none_elevation))
@@ -217,7 +234,8 @@ class TestToGeojson:
             assert len(coord) == 2  # [lon, lat] only, no elevation
 
     def test_segment_index_in_properties_when_track(
-        self, minimal_track: TrackData,
+        self,
+        minimal_track: TrackData,
     ) -> None:
         """Given a TrackData, segment feature properties include segment_index."""
         parsed = _loads(to_geojson(minimal_track))
@@ -227,7 +245,8 @@ class TestToGeojson:
         assert props["segment_index"] == 0
 
     def test_waypoint_name_in_properties(
-        self, track_with_waypoints: TrackData,
+        self,
+        track_with_waypoints: TrackData,
     ) -> None:
         """Given a waypoint with name, Point feature properties include name."""
         parsed = _loads(to_geojson(track_with_waypoints))
@@ -250,7 +269,9 @@ class TestWriteJson:
     """Tests for file-based JSON export."""
 
     def test_write_json_creates_file_when_valid(
-        self, minimal_track: TrackData, tmp_path: Path,
+        self,
+        minimal_track: TrackData,
+        tmp_path: Path,
     ) -> None:
         """Given a TrackData, write_json creates a file at the given path."""
         output = tmp_path / "output.json"
@@ -258,7 +279,9 @@ class TestWriteJson:
         assert output.exists()
 
     def test_write_json_content_matches_to_json(
-        self, minimal_track: TrackData, tmp_path: Path,
+        self,
+        minimal_track: TrackData,
+        tmp_path: Path,
     ) -> None:
         """Given a TrackData, write_json file content matches to_json output."""
         output = tmp_path / "output.json"
@@ -271,7 +294,9 @@ class TestWriteGeojson:
     """Tests for file-based GeoJSON export."""
 
     def test_write_geojson_creates_file_when_valid(
-        self, minimal_track: TrackData, tmp_path: Path,
+        self,
+        minimal_track: TrackData,
+        tmp_path: Path,
     ) -> None:
         """Given a TrackData, write_geojson creates a file at the given path."""
         output = tmp_path / "output.geojson"
@@ -279,7 +304,9 @@ class TestWriteGeojson:
         assert output.exists()
 
     def test_write_geojson_content_matches_to_geojson(
-        self, minimal_track: TrackData, tmp_path: Path,
+        self,
+        minimal_track: TrackData,
+        tmp_path: Path,
     ) -> None:
         """Given a TrackData, write_geojson file content matches to_geojson."""
         output = tmp_path / "output.geojson"

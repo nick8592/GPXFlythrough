@@ -51,14 +51,16 @@ class TestSanitizeClean:
         assert result.stats.outliers_removed == 0
 
     def test_zero_interpolated_when_all_elevation_present(
-        self, minimal_track: TrackData,
+        self,
+        minimal_track: TrackData,
     ) -> None:
         """Given all points have elevation, nothing is interpolated."""
         result = sanitize(minimal_track)
         assert result.stats.points_interpolated == 0
 
     def test_gaps_detected_when_60s_spaced_timestamps(
-        self, minimal_track: TrackData,
+        self,
+        minimal_track: TrackData,
     ) -> None:
         """Given consecutive 60s-spaced timestamps, gaps_detected equals 2."""
         result = sanitize(minimal_track)
@@ -71,18 +73,21 @@ class TestSanitizeClean:
             activity_type="Hiking",
             time=None,
             segments=(
-                TrackSegment(points=(
-                    _make_point(time=_ts(0, 0)),
-                    _make_point(lat=25.0331, time=_ts(0, 5)),
-                    _make_point(lat=25.0332, time=_ts(0, 10)),
-                )),
+                TrackSegment(
+                    points=(
+                        _make_point(time=_ts(0, 0)),
+                        _make_point(lat=25.0331, time=_ts(0, 5)),
+                        _make_point(lat=25.0332, time=_ts(0, 10)),
+                    )
+                ),
             ),
         )
         result = sanitize(track)
         assert result.stats.gaps_detected == 0
 
     def test_final_points_equals_original_when_clean(
-        self, minimal_track: TrackData,
+        self,
+        minimal_track: TrackData,
     ) -> None:
         """Given clean data, final_points equals original_points."""
         result = sanitize(minimal_track)
@@ -94,7 +99,8 @@ class TestSanitizeClean:
         assert isinstance(result, SanitizedTrack)
 
     def test_stats_type_is_sanitization_stats(
-        self, minimal_track: TrackData,
+        self,
+        minimal_track: TrackData,
     ) -> None:
         """Given any track, stats field is SanitizationStats."""
         result = sanitize(minimal_track)
@@ -115,13 +121,15 @@ class TestSanitizeSpeedSpike:
             activity_type="Hiking",
             time=None,
             segments=(
-                TrackSegment(points=(
-                    _make_point(lat=25.0330, lon=121.5650, time=_ts(0, 0)),
-                    _make_point(lat=25.0331, lon=121.5651, time=_ts(0, 1)),
-                    _make_point(lat=25.0370, lon=121.5710, time=_ts(0, 2)),  # spike
-                    _make_point(lat=25.0332, lon=121.5652, time=_ts(0, 3)),
-                    _make_point(lat=25.0333, lon=121.5653, time=_ts(0, 4)),
-                )),
+                TrackSegment(
+                    points=(
+                        _make_point(lat=25.0330, lon=121.5650, time=_ts(0, 0)),
+                        _make_point(lat=25.0331, lon=121.5651, time=_ts(0, 1)),
+                        _make_point(lat=25.0370, lon=121.5710, time=_ts(0, 2)),  # spike
+                        _make_point(lat=25.0332, lon=121.5652, time=_ts(0, 3)),
+                        _make_point(lat=25.0333, lon=121.5653, time=_ts(0, 4)),
+                    )
+                ),
             ),
         )
         result = sanitize(track)
@@ -134,13 +142,15 @@ class TestSanitizeSpeedSpike:
             activity_type="Hiking",
             time=None,
             segments=(
-                TrackSegment(points=(
-                    _make_point(lat=25.0330, lon=121.5650, time=_ts(0, 0)),
-                    _make_point(lat=25.0331, lon=121.5651, time=_ts(0, 1)),
-                    _make_point(lat=25.0370, lon=121.5710, time=_ts(0, 2)),  # spike
-                    _make_point(lat=25.0332, lon=121.5652, time=_ts(0, 3)),
-                    _make_point(lat=25.0333, lon=121.5653, time=_ts(0, 4)),
-                )),
+                TrackSegment(
+                    points=(
+                        _make_point(lat=25.0330, lon=121.5650, time=_ts(0, 0)),
+                        _make_point(lat=25.0331, lon=121.5651, time=_ts(0, 1)),
+                        _make_point(lat=25.0370, lon=121.5710, time=_ts(0, 2)),  # spike
+                        _make_point(lat=25.0332, lon=121.5652, time=_ts(0, 3)),
+                        _make_point(lat=25.0333, lon=121.5653, time=_ts(0, 4)),
+                    )
+                ),
             ),
         )
         result = sanitize(track)
@@ -160,14 +170,16 @@ class TestSanitizeGapDetection:
             activity_type="Hiking",
             time=None,
             segments=(
-                TrackSegment(points=(
-                    _make_point(time=_ts(0, 0)),
-                    _make_point(lat=25.0331, time=_ts(0, 5)),
-                    _make_point(lat=25.0332, time=_ts(0, 10)),
-                    # 60s gap here
-                    _make_point(lat=25.0360, time=_ts(1, 10)),
-                    _make_point(lat=25.0361, time=_ts(1, 15)),
-                )),
+                TrackSegment(
+                    points=(
+                        _make_point(time=_ts(0, 0)),
+                        _make_point(lat=25.0331, time=_ts(0, 5)),
+                        _make_point(lat=25.0332, time=_ts(0, 10)),
+                        # 60s gap here
+                        _make_point(lat=25.0360, time=_ts(1, 10)),
+                        _make_point(lat=25.0361, time=_ts(1, 15)),
+                    )
+                ),
             ),
         )
         result = sanitize(track)
@@ -180,10 +192,12 @@ class TestSanitizeGapDetection:
             activity_type="Hiking",
             time=None,
             segments=(
-                TrackSegment(points=(
-                    _make_point(time=_ts(0, 0)),
-                    _make_point(lat=25.0331, time=_ts(0, 10)),
-                )),
+                TrackSegment(
+                    points=(
+                        _make_point(time=_ts(0, 0)),
+                        _make_point(lat=25.0331, time=_ts(0, 10)),
+                    )
+                ),
             ),
         )
         result = sanitize(track)
@@ -197,15 +211,17 @@ class TestSanitizeGapDetection:
             activity_type="Hiking",
             time=None,
             segments=(
-                TrackSegment(points=(
-                    _make_point(time=_ts(0, 0)),
-                    _make_point(lat=25.0331, time=_ts(0, 5)),
-                    # first gap: 30s
-                    _make_point(lat=25.0340, time=_ts(0, 35)),
-                    _make_point(lat=25.0341, time=_ts(0, 40)),
-                    # second gap: 20s
-                    _make_point(lat=25.0350, time=_ts(1, 0)),
-                )),
+                TrackSegment(
+                    points=(
+                        _make_point(time=_ts(0, 0)),
+                        _make_point(lat=25.0331, time=_ts(0, 5)),
+                        # first gap: 30s
+                        _make_point(lat=25.0340, time=_ts(0, 35)),
+                        _make_point(lat=25.0341, time=_ts(0, 40)),
+                        # second gap: 20s
+                        _make_point(lat=25.0350, time=_ts(1, 0)),
+                    )
+                ),
             ),
         )
         result = sanitize(track)
@@ -225,11 +241,13 @@ class TestSanitizeElevationInterpolation:
             activity_type="Hiking",
             time=None,
             segments=(
-                TrackSegment(points=(
-                    _make_point(ele=120.0, time=_ts(0, 0)),
-                    _make_point(ele=None, time=_ts(0, 5)),
-                    _make_point(ele=130.0, time=_ts(0, 10)),
-                )),
+                TrackSegment(
+                    points=(
+                        _make_point(ele=120.0, time=_ts(0, 0)),
+                        _make_point(ele=None, time=_ts(0, 5)),
+                        _make_point(ele=130.0, time=_ts(0, 10)),
+                    )
+                ),
             ),
         )
         result = sanitize(track)
@@ -248,10 +266,12 @@ class TestSanitizeElevationInterpolation:
             activity_type="Hiking",
             time=None,
             segments=(
-                TrackSegment(points=(
-                    _make_point(ele=None, time=_ts(0, 0)),
-                    _make_point(lat=25.0331, ele=None, time=_ts(0, 5)),
-                )),
+                TrackSegment(
+                    points=(
+                        _make_point(ele=None, time=_ts(0, 0)),
+                        _make_point(lat=25.0331, ele=None, time=_ts(0, 5)),
+                    )
+                ),
             ),
         )
         result = sanitize(track)
@@ -273,14 +293,16 @@ class TestSanitizeSmoothing:
             activity_type="Hiking",
             time=None,
             segments=(
-                TrackSegment(points=tuple(
-                    _make_point(
-                        lat=25.0330 + i * 0.0001,
-                        lon=121.5650 + i * 0.0001,
-                        time=_ts(0, i),
+                TrackSegment(
+                    points=tuple(
+                        _make_point(
+                            lat=25.0330 + i * 0.0001,
+                            lon=121.5650 + i * 0.0001,
+                            time=_ts(0, i),
+                        )
+                        for i in range(20)
                     )
-                    for i in range(20)
-                )),
+                ),
             ),
         )
         result = sanitize(track)

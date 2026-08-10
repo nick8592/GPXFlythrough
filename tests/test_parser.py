@@ -60,14 +60,16 @@ class TestParseGpxMultiSegment:
     """Tests for parsing a GPX with 2 track segments."""
 
     def test_segment_count_equals_2_when_two_segments(
-        self, multi_segment_gpx: str,
+        self,
+        multi_segment_gpx: str,
     ) -> None:
         """Given 2 segments, total_segments equals 2."""
         result = parse_gpx(multi_segment_gpx)
         assert result.total_segments == 2
 
     def test_points_not_bridged_when_two_segments(
-        self, multi_segment_gpx: str,
+        self,
+        multi_segment_gpx: str,
     ) -> None:
         """Given 2 segments, each segment has its own 2 points (not merged)."""
         result = parse_gpx(multi_segment_gpx)
@@ -82,20 +84,20 @@ class TestParseGpxGarminExtensions:
     """Tests for parsing Garmin TrackPointExtension data."""
 
     def test_heart_rate_extracted_when_present(
-        self, garmin_extensions_gpx: str,
+        self,
+        garmin_extensions_gpx: str,
     ) -> None:
         """Given Garmin HR extension, heart_rate is populated."""
         result = parse_gpx(garmin_extensions_gpx)
         hr_values = [
-            p.heart_rate
-            for p in result.all_points
-            if p.heart_rate is not None
+            p.heart_rate for p in result.all_points if p.heart_rate is not None
         ]
         assert len(hr_values) == 2
         assert hr_values[0] == 145
 
     def test_cadence_extracted_when_present(
-        self, garmin_extensions_gpx: str,
+        self,
+        garmin_extensions_gpx: str,
     ) -> None:
         """Given Garmin cad extension, cadence is populated."""
         result = parse_gpx(garmin_extensions_gpx)
@@ -104,7 +106,8 @@ class TestParseGpxGarminExtensions:
         assert cad_values[0] == 85
 
     def test_speed_extracted_when_present(
-        self, garmin_extensions_gpx: str,
+        self,
+        garmin_extensions_gpx: str,
     ) -> None:
         """Given Garmin speed extension, speed is populated."""
         result = parse_gpx(garmin_extensions_gpx)
@@ -114,7 +117,8 @@ class TestParseGpxGarminExtensions:
         assert abs(float(speed_values[0]) - 2.8) < 0.1
 
     def test_temperature_extracted_when_present(
-        self, garmin_extensions_gpx: str,
+        self,
+        garmin_extensions_gpx: str,
     ) -> None:
         """Given Garmin atemp extension, temperature is populated."""
         result = parse_gpx(garmin_extensions_gpx)
@@ -167,7 +171,8 @@ class TestParseGpxWaypoints:
         assert result.waypoints[0].name == "Summit"
 
     def test_waypoint_elevation_extracted_when_present(
-        self, waypoint_gpx: str,
+        self,
+        waypoint_gpx: str,
     ) -> None:
         """Given a waypoint with elevation, it is extracted."""
         result = parse_gpx(waypoint_gpx)
@@ -205,7 +210,7 @@ class TestParseGpxInvalid:
     def test_raises_gpx_parse_error_when_invalid_xml(self) -> None:
         """Given malformed XML, parse_gpx raises GPXParseError."""
         with pytest.raises(GPXParseError):
-            parse_gpx("<not-valid-xml>")
+            _ = parse_gpx("<not-valid-xml>")
 
     def test_returns_empty_track_when_non_gpx_xml(self) -> None:
         """Given valid XML that is not GPX, parse_gpx returns empty TrackData."""
@@ -216,7 +221,7 @@ class TestParseGpxInvalid:
     def test_path_is_none_when_string_input(self) -> None:
         """Given a string input that fails, the error path is None."""
         with pytest.raises(GPXParseError) as exc_info:
-            parse_gpx("<not-valid-xml>")
+            _ = parse_gpx("<not-valid-xml>")
         assert exc_info.value.path is None
 
 
@@ -230,7 +235,7 @@ class TestParseGpxFile:
         """Given a non-existent file path, parse_gpx_file raises GPXParseError."""
         fake_path = Path.home() / "does_not_exist_12345.gpx"
         with pytest.raises(GPXParseError) as exc_info:
-            parse_gpx_file(fake_path)
+            _ = parse_gpx_file(fake_path)
         assert exc_info.value.path is not None
         assert "does_not_exist_12345" in exc_info.value.path
 
@@ -252,8 +257,8 @@ class TestParseGpxFile:
     def test_path_in_error_when_invalid_content(self, tmp_path: Path) -> None:
         """Given a file with invalid content, error contains the file path."""
         bad_file = tmp_path / "bad.gpx"
-        bad_file.write_text("<not-gpx>", encoding="utf-8")
+        _ = bad_file.write_text("<not-gpx>", encoding="utf-8")
         with pytest.raises(GPXParseError) as exc_info:
-            parse_gpx_file(bad_file)
+            _ = parse_gpx_file(bad_file)
         assert exc_info.value.path is not None
         assert "bad.gpx" in exc_info.value.path
