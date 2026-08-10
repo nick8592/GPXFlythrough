@@ -7,6 +7,7 @@ build/
 .venv/
 venv/
 *.egg
+.basedpyright/
 
 # TypeScript / Node
 node_modules/

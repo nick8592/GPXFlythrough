@@ -13,26 +13,68 @@ GPXFlythrough takes your GPS recording files (`.gpx`) and produces:
 
 All rendering runs **locally** — no cloud uploads, no API keys required for basic usage.
 
-## Quick Start
+## Install
 
 ```bash
-# Install (coming soon)
-pip install gpxflythrough
-
-# Parse and sanitize a GPX file
-gpxflythrough parse hike.gpx -o cleaned.json
-
-# Render 3D flythrough video
-gpxflythrough render hike.gpx -o output.mp4 --mode 3d --resolution 1080p
-
-# Render 2D map animation
-gpxflythrough render hike.gpx -o output.mp4 --mode 2d --resolution 1080p
-
-# Interactive browser preview
-gpxflythrough preview hike.gpx
+git clone https://github.com/nick8592/GPXFlythrough.git
+cd GPXFlythrough
+uv sync
 ```
 
-## Camera Modes
+Requires Python 3.13+ and [uv](https://docs.astral.sh/uv/).
+
+## Usage
+
+```bash
+# Show track summary
+gpxflythrough info hike.gpx
+
+# Parse and sanitize, export as JSON
+gpxflythrough parse hike.gpx -o cleaned.json
+
+# Export as GeoJSON
+gpxflythrough parse hike.gpx -o cleaned.geojson --format geojson
+
+# Skip sanitization
+gpxflythrough parse hike.gpx -o raw.json --no-sanitize
+
+# Render 3D flythrough video (Phase 1, coming soon)
+gpxflythrough render hike.gpx -o output.mp4 --mode 3d --resolution 1080p
+```
+
+### Example output
+
+```
+$ gpxflythrough info examples/Nangang_Ridge_Hike.gpx
+
+                 南港山縫走                  
+┏━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Property      ┃ Value                     ┃
+┡━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ Activity      │ hiking                    │
+│ Segments      │ 1                         │
+│ Total points  │ 5850                      │
+│ Elevation min │ 20.0 m                    │
+│ Elevation max │ 366.2 m                   │
+│ Has HR data   │ no                        │
+│ Has cadence   │ no                        │
+│ Has speed     │ no                        │
+│ Start time    │ 2026-07-26T07:30:34+00:00 │
+└───────────────┴───────────────────────────┘
+```
+
+## Data Pipeline
+
+GPX files go through a sanitization pipeline before rendering:
+
+1. **Outlier removal** — points implying impossible speed (>150 km/h) are removed
+2. **Timestamp gap detection** — gaps >10s between points are flagged
+3. **Elevation interpolation** — missing elevations filled from neighbors
+4. **Savitzky-Golay smoothing** — reduces GPS jitter while preserving path shape
+
+Track segments are never bridged — if GPS recording was interrupted (tunnels, paused device), each segment stays separate.
+
+## Camera Modes (Phase 5)
 
 | Mode | Description |
 |------|-------------|
@@ -45,7 +87,7 @@ gpxflythrough preview hike.gpx
 gpxflythrough render hike.gpx -o output.mp4 --camera cinematic --height 80
 ```
 
-## Output Options
+## Output Options (Phase 1+)
 
 | Flag | Values | Default |
 |------|--------|---------|
@@ -83,11 +125,11 @@ gpxflythrough render hike.gpx -o output.mp4 --camera cinematic --height 80
               └──────────┘ └────────────┘ └─────────────┘
 ```
 
-**Data Engine (Python)** — GPX parsing, GPS noise reduction (Kalman filter), timestamp gap interpolation, and clean JSON export.
+**Data Engine (Python)** — GPX parsing (`gpxpy`), GPS noise reduction (Savitzky-Golay filter), timestamp gap interpolation, and clean JSON/GeoJSON export (`orjson`).
 
 **Render Engine (TypeScript)** — CesiumJS for 3D terrain flythrough, MapLibre GL for 2D map animation, overlay rendering, and camera path computation.
 
-**Video Pipeline** — Deterministic frame-by-frame headless capture via Puppeteer, piped to FFmpeg for H.264 encoding. No dropped frames.
+**Video Pipeline** — Deterministic frame-by-frame headless capture via Puppeteer (CDP `beginFrame`), piped to FFmpeg for H.264 encoding. No dropped frames.
 
 ## Terrain Data
 
@@ -96,7 +138,7 @@ gpxflythrough render hike.gpx -o output.mp4 --camera cinematic --height 80
 ## Roadmap
 
 - [x] Project planning and architecture design
-- [ ] **Phase 0** — GPX parsing, data sanitization, CLI skeleton
+- [x] **Phase 0** — GPX parsing, data sanitization, CLI skeleton
 - [ ] **Phase 1** — 3D flythrough video export (CesiumJS + FFmpeg)
 - [ ] **Phase 2** — 2D map animation video export (MapLibre + FFmpeg)
 - [ ] **Phase 3** — Interactive browser playback (2D + 3D)
@@ -106,13 +148,23 @@ gpxflythrough render hike.gpx -o output.mp4 --camera cinematic --height 80
 
 ## Example
 
-The `examples/` directory contains `Nangang_Ridge_Hike.gpx` — a real hiking track from 南港山縱走 (Nangang Ridge Traverse) in Taipei, recorded via Strava with 23K+ trackpoints.
+The `examples/` directory contains `Nangang_Ridge_Hike.gpx` — a real hiking track from 南港山縱走 (Nangang Ridge Traverse) in Taipei, recorded via Strava with 5,850 trackpoints.
+
+## Development
+
+```bash
+uv sync                          # install dependencies
+uv run basedpyright src/         # type check
+uv run ruff check src/           # lint
+uv run ruff format --check src/  # format check
+uv run pytest tests/ -v          # run tests (71 tests)
+```
 
 ## Tech Stack
 
 | Component | Technology |
 |-----------|-----------|
-| Data Engine | Python 3.13+, gpxpy, scipy, pykalman |
+| Data Engine | Python 3.13+, gpxpy, scipy, orjson, typer, rich |
 | 3D Renderer | CesiumJS |
 | 2D Renderer | MapLibre GL JS |
 | Terrain | Copernicus DEM GLO-30 |
