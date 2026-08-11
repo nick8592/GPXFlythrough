@@ -1,14 +1,14 @@
 """CLI entry point for GPXFlythrough.
 
-Provides ``parse`` and ``info`` subcommands backed by the
-parser, sanitization, and export modules.
+Provides ``parse``, ``info``, and ``render`` subcommands backed
+by the parser, sanitization, export, and renderer modules.
 """
 
 from __future__ import annotations
 
 import sys
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, cast
 
 import typer
 from rich.console import Console
@@ -17,7 +17,12 @@ from rich.table import Table
 from gpxflythrough.export import to_geojson, to_json, write_geojson, write_json
 from gpxflythrough.models import SanitizedTrack, TrackData
 from gpxflythrough.parser import GPXParseError, parse_gpx_file
+from gpxflythrough.renderer.exceptions import RendererError
+from gpxflythrough.renderer.pipeline import render_pipeline
+from gpxflythrough.renderer.schema import RenderOptions, Resolution
 from gpxflythrough.sanitize import sanitize
+
+_DEFAULT_OUTPUT = Path("output.mp4")
 
 app = typer.Typer(
     rich_markup_mode="rich",
@@ -138,3 +143,120 @@ def info(
     if track.time is not None:
         table.add_row("Start time", track.time.isoformat())
     console.print(table)
+
+
+@app.command()
+def render(  # noqa: PLR0913, PLR0917
+    gpx_path: Annotated[
+        Path,
+        typer.Argument(help="Path to the GPX file.", exists=True),
+    ],
+    output: Annotated[
+        Path,
+        typer.Option("--output", "-o", help="Output MP4 file path."),
+    ] = _DEFAULT_OUTPUT,
+    mode: Annotated[
+        str,
+        typer.Option(
+            "--mode",
+            help="Render mode: 3d (2d coming in Phase 2).",
+        ),
+    ] = "3d",
+    resolution: Annotated[
+        str,
+        typer.Option("--resolution", help="Resolution: 720p, 1080p, 4k."),
+    ] = "1080p",
+    fps: Annotated[
+        int,
+        typer.Option("--fps", help="Frames per second: 24, 30, 60."),
+    ] = 30,
+    camera: Annotated[
+        str,
+        typer.Option(
+            "--camera",
+            help="Camera mode: follow (others in Phase 5).",
+        ),
+    ] = "follow",
+    height: Annotated[
+        float,
+        typer.Option(
+            "--height",
+            help="Camera height above terrain (meters).",
+        ),
+    ] = 50.0,
+    duration: Annotated[
+        float,
+        typer.Option(
+            "--duration",
+            help="Animation duration (seconds).",
+        ),
+    ] = 30.0,
+    no_terrain: Annotated[
+        bool,
+        typer.Option("--no-terrain", help="Disable terrain (flat ellipsoid)."),
+    ] = False,
+    cache_dir: Annotated[
+        str,
+        typer.Option(
+            "--cache-dir",
+            help="Chrome disk cache directory.",
+        ),
+    ] = "/tmp/gpx-renderer-chrome-cache",  # noqa: S108
+    ffmpeg_path: Annotated[
+        str | None,
+        typer.Option("--ffmpeg-path", help="Path to ffmpeg binary."),
+    ] = None,
+    token: Annotated[
+        str | None,
+        typer.Option("--token", help="Cesium Ion access token."),
+    ] = None,
+    overlays: Annotated[
+        str,
+        typer.Option("--overlays", help="Data overlays (Phase 4)."),
+    ] = "elevation",
+    theme: Annotated[
+        str,
+        typer.Option("--theme", help="Visual theme (Phase 5)."),
+    ] = "dark",
+) -> None:
+    """Render a 3D flythrough video from a GPX track."""
+    # Stub errors for future phases
+    if mode == "2d":
+        _ERR.print("[red]Error:[/red] 2D mode not yet supported — coming in Phase 2")
+        raise SystemExit(1)
+    if camera in ("birdseye", "cinematic", "orbit"):
+        msg = (
+            f"[red]Error:[/red] Camera '{camera}' not yet supported — coming in Phase 5"
+        )
+        _ERR.print(msg)
+        raise SystemExit(1)
+    if overlays != "elevation":
+        _ERR.print("[red]Error:[/red] Custom overlays not yet supported — Phase 4")
+        raise SystemExit(1)
+    if theme != "dark":
+        _ERR.print("[red]Error:[/red] Custom themes not yet supported — Phase 5")
+        raise SystemExit(1)
+
+    opts = RenderOptions(
+        mode=mode,
+        resolution=cast("Resolution", resolution),
+        fps=fps,
+        camera_mode=camera,
+        height_m=height,
+        duration_s=duration,
+        no_terrain=no_terrain,
+        cache_dir=cache_dir,
+        ffmpeg_path=ffmpeg_path,
+        ion_token=token,
+    )
+
+    try:
+        result = render_pipeline(gpx_path, output, opts)
+    except RendererError as exc:
+        _ERR.print(f"[red]Render error:[/red] {exc.message}")
+        raise SystemExit(1) from None
+    except Exception as exc:  # noqa: BLE001
+        _ERR.print(f"[red]Unexpected error:[/red] {exc}")
+        raise SystemExit(1) from None
+    else:
+        Console().print(f"Video rendered: [green]{result}[/green]")

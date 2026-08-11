@@ -6,7 +6,7 @@ on:
   pull_request:
 
 jobs:
-  check:
+  python:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -32,3 +32,32 @@ jobs:
 
       - name: Test
         run: uv run pytest
+
+  renderer:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: renderer
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: renderer/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm run test
+
+      - name: Build
+        run: npm run build

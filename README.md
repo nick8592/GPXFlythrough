@@ -19,9 +19,13 @@ All rendering runs **locally** — no cloud uploads, no API keys required for ba
 git clone https://github.com/nick8592/GPXFlythrough.git
 cd GPXFlythrough
 uv sync
+
+# For video rendering, also set up the TypeScript renderer:
+cd renderer
+npm ci
 ```
 
-Requires Python 3.13+ and [uv](https://docs.astral.sh/uv/).
+Requires Python 3.13+, [uv](https://docs.astral.sh/uv/), Node.js 20+, and [FFmpeg](https://ffmpeg.org/) for video export.
 
 ## Usage
 
@@ -38,8 +42,8 @@ gpxflythrough parse hike.gpx -o cleaned.geojson --format geojson
 # Skip sanitization
 gpxflythrough parse hike.gpx -o raw.json --no-sanitize
 
-# Render 3D flythrough video (Phase 1, coming soon)
-gpxflythrough render hike.gpx -o output.mp4 --mode 3d --resolution 1080p
+# Render 3D flythrough video
+gpxflythrough render hike.gpx -o output.mp4
 ```
 
 ### Example output
@@ -139,7 +143,7 @@ gpxflythrough render hike.gpx -o output.mp4 --camera cinematic --height 80
 
 - [x] Project planning and architecture design
 - [x] **Phase 0** — GPX parsing, data sanitization, CLI skeleton
-- [ ] **Phase 1** — 3D flythrough video export (CesiumJS + FFmpeg)
+- [x] **Phase 1** — 3D flythrough video export (CesiumJS + FFmpeg)
 - [ ] **Phase 2** — 2D map animation video export (MapLibre + FFmpeg)
 - [ ] **Phase 3** — Interactive browser playback (2D + 3D)
 - [ ] **Phase 4** — Data overlays (heart rate, speed, elevation profile)
@@ -153,11 +157,20 @@ The `examples/` directory contains `Nangang_Ridge_Hike.gpx` — a real hiking tr
 ## Development
 
 ```bash
+# Python
 uv sync                          # install dependencies
 uv run basedpyright src/         # type check
 uv run ruff check src/           # lint
 uv run ruff format --check src/  # format check
-uv run pytest tests/ -v          # run tests (71 tests)
+uv run pytest tests/ -v          # run tests (97 tests)
+
+# Renderer (renderer/)
+cd renderer
+npm ci                           # install dependencies
+npm run typecheck                # type check
+npm run lint                     # lint
+npm run test                     # run tests (36 tests)
+npm run build                    # build
 ```
 
 ## Tech Stack

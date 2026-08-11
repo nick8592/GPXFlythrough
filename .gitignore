@@ -14,6 +14,9 @@ node_modules/
 renderer/dist/
 renderer/.vite/
 
+# Puppeteer Chrome binaries
+chrome-headless-shell/
+
 # Video export artifacts
 *.tmp.mp4
 frames/

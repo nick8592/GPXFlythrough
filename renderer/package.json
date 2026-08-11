@@ -1,0 +1,30 @@
+{
+  "name": "gpxflythrough-renderer",
+  "version": "0.1.0",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "vite build && tsup",
+    "build:browser": "vite build",
+    "build:bin": "tsup",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "cesium": "^1.121",
+    "puppeteer": "^23"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "eslint": "^9",
+    "typescript": "^5.7",
+    "typescript-eslint": "^8",
+    "vite": "^6",
+    "vite-plugin-cesium": "^1",
+    "vitest": "^3",
+    "tsup": "^8"
+  }
+}
