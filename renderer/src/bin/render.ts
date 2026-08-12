@@ -99,19 +99,14 @@ async function main(): Promise<void> {
     return;
   }
 
-  // Read track JSON
   const inputPath = cliArgs.input.startsWith("file://")
     ? fileURLToPath(cliArgs.input)
     : cliArgs.input;
   const trackJson = await readFile(inputPath, "utf-8");
 
-  // Resolution dimensions
   const dims = RESOLUTION_MAP[cliArgs.resolution] ?? [1920, 1080];
-
-  // Dist directory (where the built renderer HTML lives)
   const distDir = resolve(__dirname, "..");
 
-  // Spawn FFmpeg
   const ffmpeg = spawnFfmpeg(
     cliArgs.output,
     cliArgs.fps,
@@ -119,9 +114,21 @@ async function main(): Promise<void> {
     cliArgs.ffmpegPath,
   );
 
-  // Capture frames and pipe to FFmpeg
   let frameCount = 0;
   const captureStartTime = Date.now();
+  let shuttingDown = false;
+
+  const handleSignal = async (sig: string): Promise<void> => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    process.stderr.write(`\nCaught ${sig}, finishing…\n`);
+    await ffmpeg.gracefulQuit();
+    process.stderr.write(`Stopped after ${frameCount} frames.\n`);
+    process.exit(0);
+  };
+
+  process.on("SIGINT", () => void handleSignal("SIGINT"));
+  process.on("SIGTERM", () => void handleSignal("SIGTERM"));
 
   try {
     for await (const pngBuffer of captureFrames({
@@ -135,6 +142,8 @@ async function main(): Promise<void> {
       heightAboveTerrain: cliArgs.height,
       noTerrain: cliArgs.noTerrain,
     })) {
+      if (shuttingDown) break;
+
       await writeWithBackpressure(ffmpeg.stdin, pngBuffer);
       frameCount++;
 
@@ -145,21 +154,23 @@ async function main(): Promise<void> {
       );
     }
 
-    // Signal end of input
-    ffmpeg.stdin.end();
+    if (!shuttingDown) {
+      ffmpeg.stdin.end();
 
-    // Wait for FFmpeg to finish
-    const stderr = await ffmpeg.wait();
-    if (stderr) {
-      process.stderr.write(stderr);
+      const stderr = await ffmpeg.wait();
+      if (stderr) {
+        process.stderr.write(stderr);
+      }
+
+      process.stderr.write(
+        `\nDone: ${frameCount} frames → ${cliArgs.output}\n`,
+      );
     }
-
-    process.stderr.write(
-      `\nDone: ${frameCount} frames → ${cliArgs.output}\n`,
-    );
   } catch (err) {
-    ffmpeg.stdin.destroy();
-    throw err;
+    if (!shuttingDown) {
+      ffmpeg.stdin.destroy();
+      throw err;
+    }
   }
 }
 

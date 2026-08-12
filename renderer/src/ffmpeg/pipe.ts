@@ -4,11 +4,15 @@ import { resolveFfmpegPath } from "./probe.js";
 import { buildFfmpegArgs } from "./args.js";
 import { FFmpegError } from "../types/ffmpeg.js";
 
+const GRACEFUL_QUIT_TIMEOUT_MS = 5_000;
+
 export interface FFmpegPipeResult {
   /** Write PNG frames to this stream. */
   stdin: Writable;
   /** Wait for the FFmpeg process to finish. Rejects on non-zero exit. */
-  wait: () => Promise<string>; // resolves with stderr output for debugging
+  wait: () => Promise<string>;
+  /** Signal FFmpeg to finalize, then force-kill after timeout. */
+  gracefulQuit: () => Promise<void>;
 }
 
 /** Spawn an FFmpeg process with stdin pipe for frame input. */
@@ -45,11 +49,27 @@ export function spawnFfmpeg(
       });
     });
 
+  const gracefulQuit = (): Promise<void> =>
+    new Promise((resolve) => {
+      const timeout = setTimeout(() => {
+        proc.kill("SIGKILL");
+        resolve();
+      }, GRACEFUL_QUIT_TIMEOUT_MS);
+
+      proc.on("close", () => {
+        clearTimeout(timeout);
+        resolve();
+      });
+
+      proc.stdin.write("q");
+      proc.stdin.end();
+    });
+
   if (!proc.stdin) {
     throw new FFmpegError("ffmpeg stdin stream is unavailable");
   }
 
-  return { stdin: proc.stdin, wait };
+  return { stdin: proc.stdin, wait, gracefulQuit };
 }
 
 /** Write a buffer to a writable stream with backpressure handling. */

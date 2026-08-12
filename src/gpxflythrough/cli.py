@@ -257,42 +257,47 @@ def render(  # noqa: PLR0913, PLR0917
         ion_token=token,
     )
 
-    with Progress(
-        SpinnerColumn(),
-        TextColumn("[progress.description]{task.description}"),
-        BarColumn(),
-        TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
-        TextColumn("{task.fields[frames]}"),
-        TextColumn("{task.fields[speed]}"),
-        TimeRemainingColumn(),
-        console=_ERR,
-    ) as progress:
-        task_id = progress.add_task(
-            "Rendering",
-            total=None,
-            frames="0/? frames",
-            speed="",
-        )
-        total_frames: int | None = None
-
-        def _on_progress(frame: int, total: int, speed_fps: float) -> None:
-            nonlocal total_frames
-            total_frames = total
-            progress.update(
-                task_id,
-                total=total,
-                completed=frame,
-                frames=f"{frame}/{total} frames",
-                speed=f"{speed_fps:.1f} fps",
+    try:
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+            TextColumn("{task.fields[frames]}"),
+            TextColumn("{task.fields[speed]}"),
+            TimeRemainingColumn(),
+            console=_ERR,
+        ) as progress:
+            task_id = progress.add_task(
+                "Rendering",
+                total=None,
+                frames="0/? frames",
+                speed="",
             )
+            total_frames: int | None = None
 
-        try:
-            result = render_pipeline(gpx_path, output, opts, on_progress=_on_progress)
-        except RendererError as exc:
-            _ERR.print(f"\n[red]Render error:[/red] {exc.message}")
-            raise SystemExit(1) from None
-        except Exception as exc:  # noqa: BLE001
-            _ERR.print(f"\n[red]Unexpected error:[/red] {exc}")
-            raise SystemExit(1) from None
-        else:
-            _ERR.print(f"Video rendered: [green]{result}[/green]")
+            def _on_progress(frame: int, total: int, speed_fps: float) -> None:
+                nonlocal total_frames
+                total_frames = total
+                progress.update(
+                    task_id,
+                    total=total,
+                    completed=frame,
+                    frames=f"{frame}/{total} frames",
+                    speed=f"{speed_fps:.1f} fps",
+                )
+
+            try:
+                result = render_pipeline(
+                    gpx_path, output, opts, on_progress=_on_progress,
+                )
+            except RendererError as exc:
+                _ERR.print(f"\n[red]Render error:[/red] {exc.message}")
+                raise SystemExit(1) from None
+            except Exception as exc:  # noqa: BLE001
+                _ERR.print(f"\n[red]Unexpected error:[/red] {exc}")
+                raise SystemExit(1) from None
+            else:
+                _ERR.print(f"Video rendered: [green]{result}[/green]")
+    except KeyboardInterrupt:
+        _ERR.print("\nRender cancelled.")

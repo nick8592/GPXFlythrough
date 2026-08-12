@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import contextlib
+import os
+import signal
 import tempfile
 from collections.abc import Callable
 from pathlib import Path
@@ -20,6 +22,8 @@ from gpxflythrough.renderer.subprocess import (
     stream_subprocess_stderr,
 )
 from gpxflythrough.sanitize import sanitize
+
+_SIGINT_KILL_TIMEOUT_S = 8
 
 
 def render_pipeline(
@@ -90,19 +94,35 @@ def render_pipeline(
 
         proc = spawn_render_subprocess(args)
 
-        stderr_log = Path(f"{tmp_json.name}.stderr.log")
-        stderr_content = stream_subprocess_stderr(proc, stderr_log, on_progress)
+        # Forward SIGINT to the Node subprocess's process group
+        # (it was started with start_new_session, so SIGINT to Python
+        # doesn't reach it).  The Node handler will gracefully quit
+        # FFmpeg and close Chrome.
+        _orig_sigint = signal.getsignal(signal.SIGINT)
 
-        exit_code = proc.wait()
+        def _forward_sigint(_signum: int, _frame: object) -> None:
+            if proc.poll() is None:
+                os.killpg(proc.pid, signal.SIGINT)
 
-        if exit_code != 0:
+        _ = signal.signal(signal.SIGINT, _forward_sigint)
+
+        try:
+            stderr_log = Path(f"{tmp_json.name}.stderr.log")
+            stderr_content = stream_subprocess_stderr(proc, stderr_log, on_progress)
+
+            exit_code = proc.wait()
+        finally:
+            _ = signal.signal(signal.SIGINT, _orig_sigint)
+
+        # Non-zero exit from signal is expected on Ctrl+C — don't raise
+        if exit_code not in {0, -signal.SIGINT}:
             msg = (
                 f"Renderer exited with code {exit_code}.\n"
                 f"stderr: {stderr_content[:2000]}"
             )
             raise RendererError(msg)
 
-        if not output_mp4.exists():
+        if exit_code == 0 and not output_mp4.exists():
             msg = f"Renderer exited 0 but output file not found: {output_mp4}"
             raise RendererError(msg)
 
