@@ -5,11 +5,16 @@ from __future__ import annotations
 import os
 import shutil
 import subprocess
+import sys
+from collections.abc import Callable
 from pathlib import Path
 
 from gpxflythrough.renderer.exceptions import NodeNotFoundError, RendererError
 
 _RENDERER_REL_PATH = Path("renderer") / "dist" / "bin" / "render.js"
+
+_PROGRESS_PREFIX = "PROGRESS:"
+_PROGRESS_FIELD_COUNT = 3
 
 
 def renderer_bin_path() -> Path:
@@ -42,7 +47,6 @@ def spawn_render_subprocess(
     renderer = renderer_bin_path()
     full_args = [node, str(renderer), *args]
 
-    # Pass through PUPPETEER_EXECUTABLE_PATH if set in parent environment
     env = os.environ.copy()
 
     return subprocess.Popen(  # noqa: S603
@@ -53,6 +57,52 @@ def spawn_render_subprocess(
         start_new_session=True,
         env=env,
     )
+
+
+def stream_subprocess_stderr(
+    proc: subprocess.Popen[str],
+    log_file: Path,
+    on_progress: Callable[[int, int, float], None] | None = None,
+) -> str:
+    """Stream stderr lines in real-time, parsing PROGRESS: events.
+
+    Lines starting with ``PROGRESS:<frame>:<total>:<speed>`` are parsed
+    and forwarded to ``on_progress``.  All other lines pass through
+    to ``sys.stderr`` verbatim.
+    """
+    stderr_lines: list[str] = []
+    if proc.stderr is None:
+        return ""
+
+    try:
+        while True:
+            line = proc.stderr.readline()
+            if not line:
+                break
+            stderr_lines.append(line)
+
+            stripped = line.rstrip("\n")
+            if stripped.startswith(_PROGRESS_PREFIX) and on_progress is not None:
+                parts = stripped[len(_PROGRESS_PREFIX) :].split(":")
+                if len(parts) == _PROGRESS_FIELD_COUNT:
+                    try:
+                        frame = int(parts[0])
+                        total = int(parts[1])
+                        speed = float(parts[2])
+                        on_progress(frame, total, speed)
+                    except (ValueError, IndexError):
+                        _ = sys.stderr.write(line)
+                        _ = sys.stderr.flush()
+                else:
+                    _ = sys.stderr.write(line)
+                    _ = sys.stderr.flush()
+            else:
+                _ = sys.stderr.write(line)
+                _ = sys.stderr.flush()
+    finally:
+        _ = log_file.write_text("".join(stderr_lines))
+
+    return "".join(stderr_lines)
 
 
 def drain_subprocess_stderr(

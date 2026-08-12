@@ -32,14 +32,12 @@ export async function* captureFrames(
       `Capturing ${totalFrames} frames at ${options.fps}fps (${options.duration.toFixed(1)}s)\n`,
     );
 
-    // Use the CDP session from probe (if beginFrame mode) or null for screenshot mode
     let cdpSession: CDPSession | null = null;
     if (setup.captureMode === "beginFrame") {
       cdpSession = await setup.page.createCDPSession();
     }
 
     while (frameIndex < totalFrames) {
-      // Recycle page every N frames to free GPU memory
       if (frameIndex > 0 && frameIndex % PAGE_RECYCLE_INTERVAL === 0) {
         process.stderr.write(`Recycling page at frame ${frameIndex}...\n`);
         await setup.page.close();
@@ -52,13 +50,11 @@ export async function* captureFrames(
 
       const timeMs = frameIndex * frameIntervalMs;
 
-      // Seek the player to this frame's time
       await setup.page.evaluate(
         (t) => globalThis.__player.seek(t),
         timeMs,
       );
 
-      // Wait one animation frame for rendering to complete
       await setup.page.evaluate(
         () =>
           new Promise<void>((resolve) => {
@@ -66,7 +62,6 @@ export async function* captureFrames(
           }),
       );
 
-      // Capture frame
       let pngBuffer: Buffer;
 
       if (setup.captureMode === "beginFrame" && cdpSession) {
@@ -90,13 +85,6 @@ export async function* captureFrames(
       }
 
       yield pngBuffer;
-
-      // Progress logging every 100 frames
-      if ((frameIndex + 1) % 100 === 0) {
-        process.stderr.write(
-          `  Frame ${frameIndex + 1}/${totalFrames}\n`,
-        );
-      }
 
       frameIndex++;
     }

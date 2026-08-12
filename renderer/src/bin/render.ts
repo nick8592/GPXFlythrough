@@ -121,6 +121,8 @@ async function main(): Promise<void> {
 
   // Capture frames and pipe to FFmpeg
   let frameCount = 0;
+  const captureStartTime = Date.now();
+
   try {
     for await (const pngBuffer of captureFrames({
       distDir,
@@ -135,6 +137,12 @@ async function main(): Promise<void> {
     })) {
       await writeWithBackpressure(ffmpeg.stdin, pngBuffer);
       frameCount++;
+
+      const elapsed = (Date.now() - captureStartTime) / 1000;
+      const speed = elapsed > 0 ? frameCount / elapsed : 0;
+      process.stderr.write(
+        `PROGRESS:${frameCount}:${String(cliArgs.fps * cliArgs.duration)}:${speed.toFixed(1)}\n`,
+      );
     }
 
     // Signal end of input

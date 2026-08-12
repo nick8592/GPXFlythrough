@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import contextlib
 import tempfile
+from collections.abc import Callable
 from pathlib import Path
 from urllib.request import pathname2url
 
@@ -15,8 +16,8 @@ from gpxflythrough.renderer.schema import (
     validate_render_options,
 )
 from gpxflythrough.renderer.subprocess import (
-    drain_subprocess_stderr,
     spawn_render_subprocess,
+    stream_subprocess_stderr,
 )
 from gpxflythrough.sanitize import sanitize
 
@@ -25,6 +26,7 @@ def render_pipeline(
     gpx_path: Path,
     output_mp4: Path,
     opts: RenderOptions,
+    on_progress: Callable[[int, int, float], None] | None = None,
 ) -> Path:
     """Run the full render pipeline.
 
@@ -34,6 +36,8 @@ def render_pipeline(
         gpx_path: Path to the input GPX file.
         output_mp4: Path for the output MP4 video.
         opts: Render configuration options.
+        on_progress: Optional callback ``(frame, total, speed_fps)``
+            invoked for each progress event from the renderer.
 
     Returns:
         Path to the produced MP4 file.
@@ -86,10 +90,10 @@ def render_pipeline(
 
         proc = spawn_render_subprocess(args)
 
-        exit_code = proc.wait()
-
         stderr_log = Path(f"{tmp_json.name}.stderr.log")
-        stderr_content = drain_subprocess_stderr(proc, stderr_log)
+        stderr_content = stream_subprocess_stderr(proc, stderr_log, on_progress)
+
+        exit_code = proc.wait()
 
         if exit_code != 0:
             msg = (

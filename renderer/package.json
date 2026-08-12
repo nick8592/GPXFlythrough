@@ -20,11 +20,11 @@
   "devDependencies": {
     "@types/node": "^22",
     "eslint": "^9",
+    "tsup": "^8",
     "typescript": "^5.7",
     "typescript-eslint": "^8",
     "vite": "^6",
     "vite-plugin-cesium": "^1",
-    "vitest": "^3",
-    "tsup": "^8"
+    "vitest": "^3"
   }
 }
