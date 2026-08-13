@@ -274,10 +274,11 @@ def view(  # noqa: PLR0913, PLR0917
         url += f"?speed={speed}"
 
     viewer_label = "2D map" if mode == "2d" else "3D flythrough"
-    _ERR.print(
+    msg = (
         f"\n  [bold green]GPXFlythrough {viewer_label}"
-        f" viewer running:[/bold green] {url}\n"
+        + f" viewer running:[/bold green] {url}\n"
     )
+    _ERR.print(msg)
 
     if not no_browser:
         try:
