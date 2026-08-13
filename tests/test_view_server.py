@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from urllib.error import HTTPError, URLError
 from urllib.request import urlopen
 
 import pytest
@@ -62,7 +63,7 @@ class TestViewServer:
         server = ViewServer(dist_dir, "{}")
         port = server.start()
         try:
-            with pytest.raises(Exception, match=""):  # noqa: PT011
+            with pytest.raises(HTTPError):
                 urlopen(f"http://127.0.0.1:{port}/nonexistent.js")
         finally:
             server.stop()
@@ -71,5 +72,5 @@ class TestViewServer:
         server = ViewServer(dist_dir, "{}")
         port = server.start()
         server.stop()
-        with pytest.raises(Exception, match=""):  # noqa: PT011
+        with pytest.raises((URLError, ConnectionRefusedError)):
             urlopen(f"http://127.0.0.1:{port}/", timeout=1)
