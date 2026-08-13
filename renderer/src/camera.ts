@@ -2,6 +2,32 @@
 import type { TrackRenderPayload, Point } from "./types/track.js";
 import type { CameraController } from "./controller.js";
 
+/** Find the track point closest to the given time (ms from start). */
+export function getPointAtTime(
+  segments: TrackRenderPayload["track"]["segments"],
+  timeMs: number,
+): Point | null {
+  const timeS = timeMs / 1000;
+  let elapsedS = 0;
+  const lastSegment = segments[segments.length - 1];
+
+  for (const segment of segments) {
+    const isLast = segment === lastSegment;
+    if (timeS <= elapsedS + segment.duration_s || isLast) {
+      const segTimeS = timeS - elapsedS;
+      const fraction =
+        segment.duration_s > 0 ? segTimeS / segment.duration_s : 0;
+      const idx = Math.min(
+        Math.floor(fraction * segment.points.length),
+        segment.points.length - 1,
+      );
+      return segment.points[Math.max(0, idx)];
+    }
+    elapsedS += segment.duration_s;
+  }
+  return null;
+}
+
 export class FollowCamera implements CameraController {
   private readonly viewer: Cesium.Viewer;
   private readonly payload: TrackRenderPayload;
@@ -16,9 +42,8 @@ export class FollowCamera implements CameraController {
     this.pitchDeg = cam.pitch_deg;
   }
 
-  /** Position camera at a specific point along the track, looking ahead. */
   seek(progressMs: number): void {
-    const point = this.getPointAtTime(progressMs);
+    const point = getPointAtTime(this.payload.track.segments, progressMs);
     if (point === null) return;
 
     const nextPoint = this.getLookaheadPoint(progressMs);
@@ -62,42 +87,14 @@ export class FollowCamera implements CameraController {
     }
   }
 
-  /** Find the track point closest to the given time (ms from start). */
-  private getPointAtTime(timeMs: number): Point | null {
-    const timeS = timeMs / 1000;
-    let elapsedS = 0;
-    const segments = this.payload.track.segments;
-    const lastSegment = segments[segments.length - 1];
-
-    for (const segment of segments) {
-      const isLast = segment === lastSegment;
-      if (timeS <= elapsedS + segment.duration_s || isLast) {
-        const segTimeS = timeS - elapsedS;
-        const fraction =
-          segment.duration_s > 0
-            ? segTimeS / segment.duration_s
-            : 0;
-        const idx = Math.min(
-          Math.floor(fraction * segment.points.length),
-          segment.points.length - 1,
-        );
-        return segment.points[Math.max(0, idx)];
-      }
-      elapsedS += segment.duration_s;
-    }
-    return null;
-  }
-
-  /** Find a point slightly ahead of the current position for camera direction. */
   private getLookaheadPoint(timeMs: number): Point | null {
-    // Advance by 2% of total duration, minimum 1 second
     const advanceMs = Math.max(this.getDurationMs() * 0.02, 1000);
-    return this.getPointAtTime(
+    return getPointAtTime(
+      this.payload.track.segments,
       Math.min(timeMs + advanceMs, this.getDurationMs()),
     );
   }
 
-  /** Get total duration in milliseconds across all segments. */
   getDurationMs(): number {
     return this.payload.track.segments.reduce(
       (sum, seg) => sum + seg.duration_s * 1000,
