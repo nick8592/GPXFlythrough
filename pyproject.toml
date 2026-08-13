@@ -62,6 +62,7 @@ select = ["ALL"]
 ignore = [
     "COM812",
     "ISC001",
+    "ISC003",   # conflicts with basedpyright reportImplicitStringConcatenation
     "D203",
     "D213",
     "CPY001",
