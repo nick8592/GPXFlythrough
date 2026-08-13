@@ -5,21 +5,16 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 import orjson
-import pytest
 
 from gpxflythrough.models import (
-    BPM,
     Latitude,
     Longitude,
     Meters,
-    MetersPerSecond,
-    RPM,
     SanitizedTrack,
     SanitizationStats,
     TrackData,
     TrackPoint,
     TrackSegment,
-    Waypoint,
 )
 from gpxflythrough.viewer.payload import ViewOptions, build_view_payload
 

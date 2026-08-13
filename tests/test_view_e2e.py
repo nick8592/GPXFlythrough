@@ -31,9 +31,9 @@ def dist_dir(tmp_path: Path) -> Path:
     index_html = tmp_path / "index.html"
     index_html.write_text(
         "<!DOCTYPE html><html><head></head><body>"
-        '<div id="cesiumContainer"></div>'
-        '<script type="module" src="/src/main.ts"></script>'
-        "</body></html>"
+        + '<div id="cesiumContainer"></div>'
+        + '<script type="module" src="/src/main.ts"></script>'
+        + "</body></html>"
     )
     (tmp_path / "assets").mkdir()
     (tmp_path / "assets" / "index.js").write_text(
