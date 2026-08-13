@@ -7,7 +7,7 @@ Convert GPX tracks into interactive 3D flythrough visualizations.
 GPXFlythrough takes your GPS recording files (`.gpx`) and produces:
 
 - **Interactive 3D flythrough viewer** — a drone-like camera following your route over realistic terrain, with play/pause, speed control, and timeline scrubbing
-- **Data overlays** — heart rate, speed, and elevation profile visualized alongside the route (coming in Phase 4)
+- **Data overlays** — heart rate, speed, and elevation profile visualized alongside the route (coming in Phase 3)
 
 All rendering runs **locally** — no cloud uploads, no API keys required for basic usage.
 
@@ -100,38 +100,141 @@ GPX files go through a sanitization pipeline before rendering:
 
 Track segments are never bridged — if GPS recording was interrupted (tunnels, paused device), each segment stays separate.
 
+## Project Structure
+
+```
+GPXFlythrough/
+├── src/gpxflythrough/          # Python data engine + CLI
+│   ├── cli.py                  # Typer CLI: parse, info, view
+│   ├── models.py               # Domain models (TrackData, SanitizedTrack, branded types)
+│   ├── parser/                 # GPX parsing (gpxpy wrapper)
+│   ├── sanitize/               # Outlier removal, gap detection, smoothing
+│   ├── export/                 # JSON/GeoJSON export (orjson)
+│   └── viewer/                 # Interactive viewer backend
+│       ├── payload.py           # ViewOptions + build_view_payload()
+│       └── server.py           # ViewServer (ThreadingHTTPServer + payload injection)
+├── renderer/                   # TypeScript browser-side renderer
+│   ├── src/
+│   │   ├── main.ts             # Entry: validate → viewer → terrain → camera → player → overlay
+│   │   ├── types/track.ts      # TrackRenderPayload schema types
+│   │   ├── schema/track-render.ts  # validate() runtime checker
+│   │   ├── controller.ts       # CameraController interface
+│   │   ├── camera.ts           # FollowCamera (lookahead-based orientation)
+│   │   ├── player.ts           # Player state machine (idle/playing/paused/finished)
+│   │   ├── viewer.ts           # CesiumJS Viewer factory
+│   │   ├── terrain.ts          # Cesium Ion terrain / ellipsoid fallback
+│   │   ├── theme.ts            # Dark / light / transparent theme
+│   │   ├── track.ts            # Track polyline + waypoint entities
+│   │   ├── ui/
+│   │   │   ├── playback-overlay.ts  # DOM playback controls
+│   │   │   └── playback-overlay.css
+│   │   └── cesium.d.ts         # CesiumJS type declarations
+│   ├── index.html              # Mount point (cesiumContainer div)
+│   └── src/__tests__/          # Vitest tests (37 tests)
+├── tests/                      # Python tests (87 tests)
+├── examples/                   # Sample GPX files
+└── .github/workflows/ci.yml   # CI: Python + renderer jobs
+```
+
 ## Architecture
 
 ```
 ┌──────────────────────────────────────────────┐
-│                  CLI / Web API                │
-└──────────┬──────────────────────┬────────────┘
-           │                      │
-    ┌──────▼──────┐       ┌───────▼────────┐
-    │  Python     │       │  TypeScript    │
-    │  Data Engine│       │  Render Engine │
-    │             │       │                │
-    │ • GPX Parse │       │ • CesiumJS 3D  │
-    │ • Sanitize  │─JSON─▶• Playback UI   │
-    │ • Smoothing │       │ • Camera Ctrl  │
-    │ • Export    │       │ • Overlays     │
-    └─────────────┘       └───────┬────────┘
-                                  │
-                    ┌─────────────┼─────────────┐
-                    │             │               │
-              ┌─────▼────┐ ┌─────▼─────┐ ┌──────▼──────┐
-              │ Interactive│ │ Video     │ │  Future:    │
-              │  Playback  │ │  Export   │ │  Web App    │
-              │ Vite+TS    │ │ (Phase 6) │ │  Next.js    │
-              │  Browser   │ │           │ │  + Queue    │
-              └────────────┘ └───────────┘ └─────────────┘
+│                  CLI (Typer)                  │
+│   parse · info · view                        │
+└──────┬──────────────────────────┬────────────┘
+       │                         │
+ ┌─────▼──────┐          ┌───────▼────────┐
+ │  Python    │          │  TypeScript    │
+ │  Data      │  JSON    │  Renderer      │
+ │  Engine    │─────────▶│  (browser)     │
+ │            │ (inline)  │                │
+ │ • Parse    │          │ • CesiumJS 3D  │
+ │ • Sanitize │          │ • FollowCamera │
+ │ • Smooth   │          │ • Player (RAF)  │
+ │ • Export   │          │ • Playback UI  │
+ │ • Payload  │          │ • Theme        │
+ │ • Server   │          │ • Schema check │
+ └────────────┘          └───────┬────────┘
+                                 │
+                    ┌────────────┼────────────┐
+                    │            │             │
+              ┌─────▼────┐ ┌────▼─────┐ ┌─────▼──────┐
+              │ Browser   │ │ Video    │ │  Web App   │
+              │ Playback  │ │ Export   │ │  (future)  │
+              │ ✅ Done   │ │ (Phase 5)│ │  (Phase 6) │
+              └──────────┘ └──────────┘ └────────────┘
 ```
 
-**Data Engine (Python)** — GPX parsing (`gpxpy`), GPS noise reduction (Savitzky-Golay filter), timestamp gap interpolation, and clean JSON/GeoJSON export (`orjson`).
+**Data Engine (Python)** — GPX parsing (`gpxpy`), GPS noise reduction (Savitzky-Golay filter), timestamp gap interpolation, and clean JSON/GeoJSON export (`orjson`). The `viewer/` module builds the `TrackRenderPayload` JSON and serves it via a `ThreadingHTTPServer` that injects the payload inline into the HTML.
 
-**Render Engine (TypeScript)** — CesiumJS for 3D terrain flythrough, playback controls (play/pause, speed, seek), camera path computation, and theme support.
+**Renderer (TypeScript)** — CesiumJS for 3D terrain flythrough, `FollowCamera` with lookahead-based orientation, `Player` state machine driving `requestAnimationFrame` playback, DOM-based playback overlay (play/pause, progress seek, speed control, time display), and theme support. The renderer reads `globalThis.__trackData` (injected by Python) and validates it against the schema before initializing.
 
-**Interactive Viewer** — Python serves the Vite-built static bundle with track data injected into the page. Browser opens CesiumJS globe with real-time playback controls.
+## Data Flow
+
+```
+ .gpx file
+    │
+    ▼
+ ┌─────────────┐
+ │  parse_gpx  │  gpxpy → TrackData
+ └─────┬───────┘
+       │
+       ▼
+ ┌─────────────┐
+ │  sanitize   │  outlier removal, gap detection, smoothing
+ └─────┬───────┘
+       │
+       ▼
+ ┌──────────────────┐
+ │ build_view_payload│  ViewOptions → orjson → TrackRenderPayload JSON
+ └─────┬─────────────┘
+       │
+       ▼
+ ┌──────────────────┐
+ │   ViewServer     │  injects <script>globalThis.__trackData = {...}</script>
+ └─────┬─────────────┘   into index.html before <script type="module">
+       │
+       ▼
+ ┌──────────────────┐
+ │  Browser         │  main.ts: validate() → Viewer → Camera → Player → Overlay
+ └──────────────────┘
+```
+
+### Schema Contract (v1.0.0)
+
+The JSON payload exchanged between Python and TypeScript follows the `TrackRenderPayload` schema. Both sides validate against version `"1.0.0"`.
+
+```typescript
+interface TrackRenderPayload {
+  schema_version: "1.0.0";
+  track: {
+    name: string;
+    activity_type: string | null;
+    bounds: { min_lat, max_lat, min_lon, max_lon, min_ele, max_ele };
+    segments: Array<{
+      index: number;
+      start_time_iso: string | null;
+      duration_s: number;
+      length_m: number;
+      points: Array<{
+        lat, lon, ele, time, cumulative_m, speed, hr, cad, temp
+      }>;
+    }>;
+    waypoints: Array<{ lat, lon, ele, name, time }>;
+  };
+  render: {
+    fps: 60;                    // browser mode
+    resolution: { label: "browser", width: 0, height: 0 };
+    camera: { mode, height_above_terrain_m, lookahead_m, pitch_deg };
+    theme: "dark" | "light";
+    overlays: string[];         // reserved for Phase 3
+    no_terrain: boolean;
+  };
+}
+```
+
+When adding new fields, bump `schema_version` and update both `renderer/src/types/track.ts` and `src/gpxflythrough/viewer/payload.py`.
 
 ## Terrain Data
 
@@ -139,14 +242,44 @@ Track segments are never bridged — if GPS recording was interrupted (tunnels, 
 
 ## Roadmap
 
-- [x] Project planning and architecture design
 - [x] **Phase 0** — GPX parsing, data sanitization, CLI skeleton
-- [x] **Phase 1** — Interactive 3D flythrough viewer (CesiumJS + browser playback)
-- [ ] **Phase 2** — 2D map animation viewer (MapLibre)
-- [ ] **Phase 3** — Data overlays (heart rate, speed, elevation profile)
-- [ ] **Phase 4** — Camera configuration and visual themes
+  - `parse` and `info` commands, outlier removal, Savitzky-Golay smoothing, JSON/GeoJSON export
+- [x] **Phase 1** — Interactive 3D flythrough viewer
+  - CesiumJS globe, FollowCamera, Player state machine, playback overlay (play/pause/seek/speed), Python HTTP server with payload injection
+- [ ] **Phase 2** — 2D map viewer (MapLibre GL JS)
+  - Add a MapLibre-based 2D renderer alongside CesiumJS, with shared Player/overlay architecture. Track drawing animation on a flat map with auto-follow camera. Reuse `TrackRenderPayload` schema.
+- [ ] **Phase 3** — Data overlays
+  - Heart rate, speed, and elevation profile charts rendered alongside the track. Extend `TrackRenderPayload` with `overlays` config. Add overlay components to the playback UI.
+- [ ] **Phase 4** — Camera modes and visual themes
+  - Additional camera modes (birdseye, cinematic orbit, first-person). Custom visual themes beyond dark/light. Camera configuration UI in the playback overlay.
 - [ ] **Phase 5** — Video export (Puppeteer + FFmpeg)
-- [ ] **Phase 6** — Web app (upload, job queue, sharing)
+  - Headless frame capture via Puppeteer CDP `beginFrame`, piped to FFmpeg for H.264 encoding. Deterministic frame-by-frame rendering at configurable fps/resolution. Reuses the same renderer with a headless Player (no RAF — tick-driven).
+- [ ] **Phase 6** — Web app
+  - Next.js frontend with Tailwind CSS. Upload GPX, job queue for rendering, shareable viewer links. Backend wraps the existing Python data engine.
+
+## Extending the Project
+
+### Adding a new renderer module (e.g., 2D MapLibre)
+
+1. Create `renderer2d/` with its own `package.json`, `vite.config.ts`, and `index.html`
+2. Reuse `types/track.ts` and `schema/track-render.ts` (copy or shared package)
+3. Implement `CameraController` interface from `controller.ts` for the 2D camera
+4. Reuse `player.ts` by injecting a `CameraController` — the Player is renderer-agnostic
+5. Add a new `gpxflythrough view2d` CLI command (or `view --mode 2d`)
+
+### Adding data overlays
+
+1. Extend `TrackRenderPayload.render.overlays` with overlay config (e.g., `["elevation", "hr"]`)
+2. Bump `schema_version` to `"1.1.0"` in both `types/track.ts` and `payload.py`
+3. Add overlay components to `renderer/src/ui/` (chart libraries, DOM panels)
+4. Mount overlays in `main.ts` after the playback overlay
+
+### Adding a camera mode
+
+1. Create a new class implementing `CameraController` (see `camera.ts` for the pattern)
+2. Register it via a `mode` field in `TrackRenderPayload.render.camera`
+3. Add a CLI flag (e.g., `--camera orbit`) and update `ViewOptions` / `build_view_payload()`
+4. In `main.ts`, select the camera class based on `payload.render.camera.mode`
 
 ## Example
 
@@ -157,18 +290,18 @@ The `examples/` directory contains `Nangang_Ridge_Hike.gpx` — a real hiking tr
 ```bash
 # Python
 uv sync                          # install dependencies
-uv run basedpyright src/         # type check
-uv run ruff check src/           # lint
+uv run basedpyright src/         # type check (strict mode)
+uv run ruff check src/           # lint (ALL rules)
 uv run ruff format --check src/  # format check
-uv run pytest tests/ -v          # run tests (83 tests)
+uv run pytest tests/ -v          # run tests (87 tests)
 
 # Renderer (renderer/)
 cd renderer
 npm ci                           # install dependencies
-npm run typecheck                # type check
-npm run lint                     # lint
-npm run test                     # run tests (37 tests)
-npm run build                    # build
+npm run typecheck                # TypeScript type check
+npm run lint                     # ESLint
+npm run test                     # Vitest (37 tests)
+npm run build                    # Vite production build → dist/
 ```
 
 ## Tech Stack
@@ -178,9 +311,9 @@ npm run build                    # build
 | Data Engine | Python 3.13+, gpxpy, scipy, orjson, typer, rich |
 | 3D Renderer | CesiumJS |
 | Interactive Playback | Vite + TypeScript |
-| Terrain | Copernicus DEM GLO-30 |
-| Video Export (future) | Puppeteer (CDP) → FFmpeg |
-| Web App (future) | Next.js + Tailwind CSS |
+| Terrain | Copernicus DEM GLO-30 (via Cesium Ion) |
+| Video Export (Phase 5) | Puppeteer (CDP) → FFmpeg |
+| Web App (Phase 6) | Next.js + Tailwind CSS |
 
 ## License
 
