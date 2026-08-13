@@ -2,6 +2,9 @@
 import type { TrackRenderPayload, Point } from "./types/track.js";
 import type { CameraController } from "./controller.js";
 
+/** Minimum squared distance (m²) between camera and lookahead for a valid direction. */
+const MIN_DIRECTION_DIST_SQ = 1.0;
+
 /** Find the track point closest to the given time (ms from start). */
 export function getPointAtTime(
   segments: TrackRenderPayload["track"]["segments"],
@@ -33,6 +36,8 @@ export class FollowCamera implements CameraController {
   private readonly payload: TrackRenderPayload;
   private readonly heightAboveTerrain: number;
   private readonly pitchDeg: number;
+  private readonly lookaheadMs: number;
+  private lastValidHeading: number | null = null;
 
   constructor(viewer: Cesium.Viewer, payload: TrackRenderPayload) {
     this.viewer = viewer;
@@ -40,13 +45,15 @@ export class FollowCamera implements CameraController {
     const cam = payload.render.camera;
     this.heightAboveTerrain = cam.height_above_terrain_m;
     this.pitchDeg = cam.pitch_deg;
+    this.lookaheadMs = Math.max(
+      this.getDurationMs() * 0.02,
+      1000,
+    );
   }
 
   seek(progressMs: number): void {
     const point = getPointAtTime(this.payload.track.segments, progressMs);
     if (point === null) return;
-
-    const nextPoint = this.getLookaheadPoint(progressMs);
 
     const altitude = (point.ele ?? 0) + this.heightAboveTerrain;
     const destination = Cesium.Cartesian3.fromDegrees(
@@ -55,31 +62,35 @@ export class FollowCamera implements CameraController {
       altitude,
     );
 
-    if (nextPoint !== null) {
-      const nextAlt = (nextPoint.ele ?? 0) + this.heightAboveTerrain;
-      const lookTarget = Cesium.Cartesian3.fromDegrees(
-        nextPoint.lon,
-        nextPoint.lat,
-        nextAlt,
+    const lookTarget = this.getLookaheadTarget(progressMs, destination);
+
+    if (lookTarget !== null) {
+      const direction = Cesium.Cartesian3.normalize(
+        Cesium.Cartesian3.subtract(
+          lookTarget,
+          destination,
+          new Cesium.Cartesian3(),
+        ),
+        new Cesium.Cartesian3(),
       );
+
+      const enuFrame = Cesium.Transforms.eastNorthUpToFixedFrame(destination);
+      const up = Cesium.Matrix4.getColumn(enuFrame, 2, new Cesium.Cartesian3());
 
       this.viewer.camera.setView({
         destination,
         orientation: {
-          direction: Cesium.Cartesian3.subtract(
-            lookTarget,
-            destination,
-            new Cesium.Cartesian3(),
-          ),
-          up: Cesium.Cartesian3.UNIT_Z,
+          direction,
+          up,
         },
       });
+
+      this.lastValidHeading = this.computeHeading(direction, enuFrame);
     } else {
-      // Last point — just position camera with fixed orientation
       this.viewer.camera.setView({
         destination,
         orientation: {
-          heading: 0,
+          heading: this.lastValidHeading ?? 0,
           pitch: Cesium.CesiumMath.toRadians(this.pitchDeg),
           roll: 0,
         },
@@ -87,12 +98,68 @@ export class FollowCamera implements CameraController {
     }
   }
 
-  private getLookaheadPoint(timeMs: number): Point | null {
-    const advanceMs = Math.max(this.getDurationMs() * 0.02, 1000);
-    return getPointAtTime(
-      this.payload.track.segments,
-      Math.min(timeMs + advanceMs, this.getDurationMs()),
+  private getLookaheadTarget(
+    progressMs: number,
+    destination: Cesium.Cartesian3,
+  ): Cesium.Cartesian3 | null {
+    const baseMs = Math.min(progressMs + this.lookaheadMs, this.getDurationMs());
+    const basePoint = getPointAtTime(this.payload.track.segments, baseMs);
+    if (basePoint === null) return null;
+
+    const candidate = this.makeCartesian(basePoint);
+    if (this.isFarEnough(candidate, destination)) return candidate;
+
+    return this.scanForward(baseMs, destination);
+  }
+
+  private scanForward(
+    startMs: number,
+    destination: Cesium.Cartesian3,
+  ): Cesium.Cartesian3 | null {
+    const stepMs = 2000;
+    let ms = startMs + stepMs;
+    const limit = this.getDurationMs();
+
+    while (ms <= limit) {
+      const pt = getPointAtTime(this.payload.track.segments, ms);
+      if (pt === null) break;
+      const candidate = this.makeCartesian(pt);
+      if (this.isFarEnough(candidate, destination)) return candidate;
+      ms += stepMs;
+    }
+
+    return null;
+  }
+
+  private makeCartesian(pt: Point): Cesium.Cartesian3 {
+    return Cesium.Cartesian3.fromDegrees(
+      pt.lon,
+      pt.lat,
+      (pt.ele ?? 0) + this.heightAboveTerrain,
     );
+  }
+
+  private isFarEnough(
+    candidate: Cesium.Cartesian3,
+    destination: Cesium.Cartesian3,
+  ): boolean {
+    const diff = Cesium.Cartesian3.subtract(
+      candidate,
+      destination,
+      new Cesium.Cartesian3(),
+    );
+    return Cesium.Cartesian3.magnitudeSquared(diff) > MIN_DIRECTION_DIST_SQ;
+  }
+
+  private computeHeading(
+    direction: Cesium.Cartesian3,
+    enuFrame: Cesium.Matrix4,
+  ): number {
+    const east = Cesium.Matrix4.getColumn(enuFrame, 0, new Cesium.Cartesian3());
+    const north = Cesium.Matrix4.getColumn(enuFrame, 1, new Cesium.Cartesian3());
+    const dEast = Cesium.Cartesian3.dot(direction, east);
+    const dNorth = Cesium.Cartesian3.dot(direction, north);
+    return Math.atan2(dEast, dNorth);
   }
 
   getDurationMs(): number {

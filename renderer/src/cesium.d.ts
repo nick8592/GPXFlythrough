@@ -90,12 +90,65 @@ declare namespace Cesium {
       latitude: number,
       height?: number,
     ): Cartesian3;
+    static fromRadians(
+      longitude: number,
+      latitude: number,
+      height?: number,
+    ): Cartesian3;
     static UNIT_Z: Cartesian3;
     static subtract(
       left: Cartesian3,
       right: Cartesian3,
       result: Cartesian3,
     ): Cartesian3;
+    static normalize(cartesian: Cartesian3, result: Cartesian3): Cartesian3;
+    static negate(cartesian: Cartesian3, result: Cartesian3): Cartesian3;
+    static cross(
+      left: Cartesian3,
+      right: Cartesian3,
+      result: Cartesian3,
+    ): Cartesian3;
+    static dot(
+      left: Cartesian3,
+      right: Cartesian3,
+    ): number;
+    static magnitudeSquared(cartesian: Cartesian3): number;
+  }
+
+  class Matrix4 {
+    static multiplyByPointAsVector(
+      matrix: Matrix4,
+      cartesian: Cartesian3,
+      result: Cartesian3,
+    ): Cartesian3;
+    static getColumn(
+      matrix: Matrix4,
+      index: number,
+      result: Cartesian3,
+    ): Cartesian3;
+  }
+
+  class Transforms {
+    static eastNorthUpToFixedFrame(
+      origin: Cartesian3,
+      ellipsoid?: unknown,
+      result?: Matrix4,
+    ): Matrix4;
+  }
+
+  class Ellipsoid {
+    static WGS84: Ellipsoid;
+  }
+
+  class Cartographic {
+    longitude: number;
+    latitude: number;
+    height: number;
+    static fromCartesian(
+      cartesian: Cartesian3,
+      ellipsoid?: Ellipsoid,
+      result?: Cartographic,
+    ): Cartographic;
   }
 
   class Cartesian2 {
