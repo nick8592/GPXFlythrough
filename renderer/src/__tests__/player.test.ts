@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import type { CameraController } from "../controller.js";
 import { Player } from "../player.js";
 import type { PlayerState } from "../player.js";

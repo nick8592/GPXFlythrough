@@ -106,7 +106,7 @@ describe("createPlaybackOverlay", () => {
     const timeLabel = container.querySelector(".playback-overlay__time-label") as HTMLDivElement;
 
     // Simulate tick at 50% (165000ms out of 330000ms)
-    capturedTickCb!(165000);
+    if (capturedTickCb) capturedTickCb(165000);
 
     expect(progressFill.style.width).toBe("50%");
     expect(timeLabel.textContent).toBe("2:45 / 5:30");
@@ -127,13 +127,13 @@ describe("createPlaybackOverlay", () => {
     const playBtn = container.querySelector("button[aria-label='Play']") as HTMLButtonElement;
 
     // Simulate state change to playing
-    capturedStateCb!("playing");
+    if (capturedStateCb) capturedStateCb("playing");
 
     expect(playBtn.textContent).toBe("⏸");
     expect(playBtn.getAttribute("aria-label")).toBe("Pause");
 
     // Simulate state change to paused
-    capturedStateCb!("paused");
+    if (capturedStateCb) capturedStateCb("paused");
 
     expect(playBtn.textContent).toBe("▶");
     expect(playBtn.getAttribute("aria-label")).toBe("Play");
@@ -200,7 +200,7 @@ describe("createPlaybackOverlay", () => {
 
   it("speed buttons update active state correctly", () => {
     const speedBtns = Array.from(container.querySelectorAll(".playback-overlay__speed-btn"));
-    const speed2xBtn = speedBtns.find((btn) => btn.textContent === "2×")!;
+    const speed2xBtn = speedBtns.find((btn) => btn.textContent === "2×") as HTMLButtonElement;
 
     // Initially 1× should be active
     expect(speedBtns.find((btn) => btn.textContent === "1×")?.classList.contains("playback-overlay__speed-btn--active")).toBe(true);
