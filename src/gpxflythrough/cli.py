@@ -1,7 +1,8 @@
 """CLI entry point for GPXFlythrough.
 
 Provides ``parse``, ``info``, and ``view`` subcommands backed by the
-parser, sanitization, export, and viewer modules.
+parser, sanitization, export, and viewer modules. The ``view`` command
+supports both 2D (MapLibre) and 3D (CesiumJS) renderer modes.
 """
 
 from __future__ import annotations
@@ -27,7 +28,7 @@ from gpxflythrough.viewer.server import ViewServer
 
 app = typer.Typer(
     rich_markup_mode="rich",
-    help="Convert GPX tracks into interactive 3D flythrough visualizations.",
+    help="Convert GPX tracks into interactive 2D/3D flythrough visualizations.",
 )
 
 _ERR = Console(stderr=True)
@@ -146,10 +147,13 @@ def info(
     console.print(table)
 
 
-def _resolve_dist_dir() -> Path:
+def _resolve_dist_dir(mode: Literal["2d", "3d"] = "3d") -> Path:
     """Resolve the renderer dist/ directory, building if needed."""
+    renderer_dir_name = "renderer2d" if mode == "2d" else "renderer"
+    label = "2D map" if mode == "2d" else "3D"
+
     repo_root = Path(__file__).resolve().parent.parent.parent
-    dist_dir = repo_root / "renderer" / "dist"
+    dist_dir = repo_root / renderer_dir_name / "dist"
     if dist_dir.is_dir():
         return dist_dir
 
@@ -157,24 +161,24 @@ def _resolve_dist_dir() -> Path:
     if node_bin is None:
         msg = (
             "[red]Error:[/red] Node.js is required to build"
-            " the renderer. Install Node.js 20+ and retry."
+            f" the {label} renderer. Install Node.js 20+ and retry."
         )
         _ERR.print(msg)
         raise SystemExit(1) from None
 
-    _ERR.print("[dim]Building renderer (first run)…[/dim]")
-    renderer_dir = repo_root / "renderer"
+    _ERR.print(f"[dim]Building {label} renderer (first run)…[/dim]")
+    target_dir = repo_root / renderer_dir_name
     try:
         _ = subprocess.run(
             ["npm", "ci"],  # noqa: S607
-            cwd=str(renderer_dir),
+            cwd=str(target_dir),
             check=True,
             capture_output=True,
             timeout=120,
         )
         _ = subprocess.run(
             ["npm", "run", "build"],  # noqa: S607
-            cwd=str(renderer_dir),
+            cwd=str(target_dir),
             check=True,
             capture_output=True,
             timeout=120,
@@ -201,9 +205,13 @@ def view(  # noqa: PLR0913, PLR0917
         Path,
         typer.Argument(help="Path to the GPX file.", exists=True),
     ],
+    mode: Annotated[
+        str,
+        typer.Option("--mode", help="Viewer mode: 2d (MapLibre) or 3d (CesiumJS)."),
+    ] = "3d",
     no_terrain: Annotated[
         bool,
-        typer.Option("--no-terrain", help="Disable terrain (flat ellipsoid)."),
+        typer.Option("--no-terrain", help="Disable terrain (flat ellipsoid, 3D only)."),
     ] = False,
     no_browser: Annotated[
         bool,
@@ -223,14 +231,18 @@ def view(  # noqa: PLR0913, PLR0917
     ] = 1.0,
     height: Annotated[
         float,
-        typer.Option("--height", help="Camera height above terrain (meters)."),
+        typer.Option("--height", help="Camera height above terrain (meters, 3D only)."),
     ] = 50.0,
     token: Annotated[
         str | None,
-        typer.Option("--token", help="Cesium Ion access token."),
+        typer.Option("--token", help="Cesium Ion access token (3D only)."),
     ] = None,
 ) -> None:
-    """Open an interactive 3D flythrough viewer for a GPX track."""
+    """Open an interactive 2D or 3D flythrough viewer for a GPX track."""
+    if mode not in {"2d", "3d"}:
+        _ERR.print(f"[red]Error:[/red] Unknown mode: {mode!r} (use 2d or 3d)")
+        raise SystemExit(1)
+
     if theme not in {"dark", "light"}:
         _ERR.print(f"[red]Error:[/red] Unknown theme: {theme!r} (use dark or light)")
         raise SystemExit(1)
@@ -252,7 +264,7 @@ def view(  # noqa: PLR0913, PLR0917
     payload_bytes = build_view_payload(sanitized, opts)
     payload_json = payload_bytes.decode("utf-8")
 
-    dist_dir = _resolve_dist_dir()
+    dist_dir = _resolve_dist_dir(cast("Literal['2d', '3d']", mode))
 
     server = ViewServer(dist_dir, payload_json)
     bound_port = server.start(port=port)
@@ -261,7 +273,11 @@ def view(  # noqa: PLR0913, PLR0917
     if speed != 1.0:
         url += f"?speed={speed}"
 
-    _ERR.print(f"\n  [bold green]GPXFlythrough viewer running:[/bold green] {url}\n")
+    viewer_label = "2D map" if mode == "2d" else "3D flythrough"
+    _ERR.print(
+        f"\n  [bold green]GPXFlythrough {viewer_label}"
+        f" viewer running:[/bold green] {url}\n"
+    )
 
     if not no_browser:
         try:
