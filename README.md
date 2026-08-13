@@ -1,15 +1,13 @@
 # GPXFlythrough
 
-Convert GPX tracks into 2D/3D visualization videos and interactive playback.
+Convert GPX tracks into interactive 3D flythrough visualizations.
 
 ## What It Does
 
 GPXFlythrough takes your GPS recording files (`.gpx`) and produces:
 
-- **3D cinematic flythrough video** — a drone-like camera following your route over realistic terrain
-- **2D animated map video** — your path drawing across a flat map with auto-follow camera
-- **Interactive browser playback** — watch the flythrough in-browser with play/pause, speed control, and timeline scrubbing
-- **Data overlays** — heart rate, speed, and elevation profile visualized alongside the route
+- **Interactive 3D flythrough viewer** — a drone-like camera following your route over realistic terrain, with play/pause, speed control, and timeline scrubbing
+- **Data overlays** — heart rate, speed, and elevation profile visualized alongside the route (coming in Phase 4)
 
 All rendering runs **locally** — no cloud uploads, no API keys required for basic usage.
 
@@ -19,9 +17,14 @@ All rendering runs **locally** — no cloud uploads, no API keys required for ba
 git clone https://github.com/nick8592/GPXFlythrough.git
 cd GPXFlythrough
 uv sync
+
+# Set up the TypeScript renderer:
+cd renderer
+npm ci
+cd ..
 ```
 
-Requires Python 3.13+ and [uv](https://docs.astral.sh/uv/).
+Requires Python 3.13+, [uv](https://docs.astral.sh/uv/), and Node.js 20+.
 
 ## Usage
 
@@ -38,8 +41,31 @@ gpxflythrough parse hike.gpx -o cleaned.geojson --format geojson
 # Skip sanitization
 gpxflythrough parse hike.gpx -o raw.json --no-sanitize
 
-# Render 3D flythrough video (Phase 1, coming soon)
-gpxflythrough render hike.gpx -o output.mp4 --mode 3d --resolution 1080p
+# Open interactive 3D flythrough viewer
+gpxflythrough view hike.gpx
+```
+
+### View Options
+
+| Flag | Values | Default |
+|------|--------|---------|
+| `--no-terrain` | Disable terrain (flat ellipsoid) | off |
+| `--no-browser` | Don't auto-open browser | off |
+| `--theme` | `dark`, `light` | `dark` |
+| `--speed` | `0.5`, `1`, `2`, `4` | `1` |
+| `--height` | Camera height above terrain (m) | `50` |
+| `--port` | Server port (0 = random) | `0` |
+| `--token` | Cesium Ion access token | none |
+
+```bash
+# View without terrain (no API key needed)
+gpxflythrough view hike.gpx --no-terrain
+
+# Start at 2x speed with light theme
+gpxflythrough view hike.gpx --speed 2 --theme light
+
+# Use a specific port
+gpxflythrough view hike.gpx --port 8080
 ```
 
 ### Example output
@@ -74,30 +100,6 @@ GPX files go through a sanitization pipeline before rendering:
 
 Track segments are never bridged — if GPS recording was interrupted (tunnels, paused device), each segment stays separate.
 
-## Camera Modes (Phase 5)
-
-| Mode | Description |
-|------|-------------|
-| `follow` | First-person camera following the path at ground level |
-| `birdseye` | Top-down overview tracking the path from above |
-| `cinematic` | Smooth spline-based camera with easing and transitions |
-| `orbit` | Camera orbiting around points of interest |
-
-```bash
-gpxflythrough render hike.gpx -o output.mp4 --camera cinematic --height 80
-```
-
-## Output Options (Phase 1+)
-
-| Flag | Values | Default |
-|------|--------|---------|
-| `--mode` | `2d`, `3d` | `3d` |
-| `--resolution` | `720p`, `1080p`, `4k` | `1080p` |
-| `--fps` | 24, 30, 60 | 30 |
-| `--camera` | `follow`, `birdseye`, `cinematic`, `orbit` | `follow` |
-| `--overlays` | `hr`, `speed`, `elevation`, `none` | `elevation` |
-| `--theme` | `light`, `dark`, `transparent` | `dark` |
-
 ## Architecture
 
 ```
@@ -110,40 +112,40 @@ gpxflythrough render hike.gpx -o output.mp4 --camera cinematic --height 80
     │  Data Engine│       │  Render Engine │
     │             │       │                │
     │ • GPX Parse │       │ • CesiumJS 3D  │
-    │ • Sanitize  │─JSON─▶• MapLibre 2D   │
-    │ • Smoothing │       │ • Overlays     │
-    │ • Export    │       │ • Camera Ctrl  │
+    │ • Sanitize  │─JSON─▶• Playback UI   │
+    │ • Smoothing │       │ • Camera Ctrl  │
+    │ • Export    │       │ • Overlays     │
     └─────────────┘       └───────┬────────┘
                                   │
                     ┌─────────────┼─────────────┐
                     │             │               │
               ┌─────▼────┐ ┌─────▼─────┐ ┌──────▼──────┐
-              │  Video   │ │ Interactive│ │  Future:    │
-              │  Export   │ │  Playback  │ │  Web App    │
-              │ Puppeteer│ │  Vite+TS   │ │  Next.js    │
-              │ → FFmpeg  │ │  Browser   │ │  + Queue    │
-              └──────────┘ └────────────┘ └─────────────┘
+              │ Interactive│ │ Video     │ │  Future:    │
+              │  Playback  │ │  Export   │ │  Web App    │
+              │ Vite+TS    │ │ (Phase 6) │ │  Next.js    │
+              │  Browser   │ │           │ │  + Queue    │
+              └────────────┘ └───────────┘ └─────────────┘
 ```
 
 **Data Engine (Python)** — GPX parsing (`gpxpy`), GPS noise reduction (Savitzky-Golay filter), timestamp gap interpolation, and clean JSON/GeoJSON export (`orjson`).
 
-**Render Engine (TypeScript)** — CesiumJS for 3D terrain flythrough, MapLibre GL for 2D map animation, overlay rendering, and camera path computation.
+**Render Engine (TypeScript)** — CesiumJS for 3D terrain flythrough, playback controls (play/pause, speed, seek), camera path computation, and theme support.
 
-**Video Pipeline** — Deterministic frame-by-frame headless capture via Puppeteer (CDP `beginFrame`), piped to FFmpeg for H.264 encoding. No dropped frames.
+**Interactive Viewer** — Python serves the Vite-built static bundle with track data injected into the page. Browser opens CesiumJS globe with real-time playback controls.
 
 ## Terrain Data
 
-3D mode uses **Copernicus DEM GLO-30** (30m resolution, ±4m vertical accuracy) for realistic terrain rendering. Terrain tiles are fetched on-demand and cached locally for repeated renders.
+3D mode uses **Copernicus DEM GLO-30** (30m resolution, ±4m vertical accuracy) for realistic terrain rendering. Terrain tiles are fetched on-demand from Cesium Ion. Use `--no-terrain` for a flat ellipsoid that doesn't require an API token.
 
 ## Roadmap
 
 - [x] Project planning and architecture design
 - [x] **Phase 0** — GPX parsing, data sanitization, CLI skeleton
-- [ ] **Phase 1** — 3D flythrough video export (CesiumJS + FFmpeg)
-- [ ] **Phase 2** — 2D map animation video export (MapLibre + FFmpeg)
-- [ ] **Phase 3** — Interactive browser playback (2D + 3D)
-- [ ] **Phase 4** — Data overlays (heart rate, speed, elevation profile)
-- [ ] **Phase 5** — Camera configuration and visual themes
+- [x] **Phase 1** — Interactive 3D flythrough viewer (CesiumJS + browser playback)
+- [ ] **Phase 2** — 2D map animation viewer (MapLibre)
+- [ ] **Phase 3** — Data overlays (heart rate, speed, elevation profile)
+- [ ] **Phase 4** — Camera configuration and visual themes
+- [ ] **Phase 5** — Video export (Puppeteer + FFmpeg)
 - [ ] **Phase 6** — Web app (upload, job queue, sharing)
 
 ## Example
@@ -153,11 +155,20 @@ The `examples/` directory contains `Nangang_Ridge_Hike.gpx` — a real hiking tr
 ## Development
 
 ```bash
+# Python
 uv sync                          # install dependencies
 uv run basedpyright src/         # type check
 uv run ruff check src/           # lint
 uv run ruff format --check src/  # format check
-uv run pytest tests/ -v          # run tests (71 tests)
+uv run pytest tests/ -v          # run tests (83 tests)
+
+# Renderer (renderer/)
+cd renderer
+npm ci                           # install dependencies
+npm run typecheck                # type check
+npm run lint                     # lint
+npm run test                     # run tests (37 tests)
+npm run build                    # build
 ```
 
 ## Tech Stack
@@ -166,10 +177,9 @@ uv run pytest tests/ -v          # run tests (71 tests)
 |-----------|-----------|
 | Data Engine | Python 3.13+, gpxpy, scipy, orjson, typer, rich |
 | 3D Renderer | CesiumJS |
-| 2D Renderer | MapLibre GL JS |
-| Terrain | Copernicus DEM GLO-30 |
-| Video Export | Puppeteer (CDP) → FFmpeg |
 | Interactive Playback | Vite + TypeScript |
+| Terrain | Copernicus DEM GLO-30 |
+| Video Export (future) | Puppeteer (CDP) → FFmpeg |
 | Web App (future) | Next.js + Tailwind CSS |
 
 ## License

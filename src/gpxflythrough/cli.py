@@ -1,14 +1,18 @@
 """CLI entry point for GPXFlythrough.
 
-Provides ``parse`` and ``info`` subcommands backed by the
-parser, sanitization, and export modules.
+Provides ``parse``, ``info``, and ``view`` subcommands backed by the
+parser, sanitization, export, and viewer modules.
 """
 
 from __future__ import annotations
 
+import shutil
+import signal as _signal
+import subprocess
 import sys
+import webbrowser
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Literal, cast
 
 import typer
 from rich.console import Console
@@ -18,10 +22,12 @@ from gpxflythrough.export import to_geojson, to_json, write_geojson, write_json
 from gpxflythrough.models import SanitizedTrack, TrackData
 from gpxflythrough.parser import GPXParseError, parse_gpx_file
 from gpxflythrough.sanitize import sanitize
+from gpxflythrough.viewer.payload import ViewOptions, build_view_payload
+from gpxflythrough.viewer.server import ViewServer
 
 app = typer.Typer(
     rich_markup_mode="rich",
-    help="Convert GPX tracks into 2D/3D visualization videos.",
+    help="Convert GPX tracks into interactive 3D flythrough visualizations.",
 )
 
 _ERR = Console(stderr=True)
@@ -138,3 +144,135 @@ def info(
     if track.time is not None:
         table.add_row("Start time", track.time.isoformat())
     console.print(table)
+
+
+def _resolve_dist_dir() -> Path:
+    """Resolve the renderer dist/ directory, building if needed."""
+    repo_root = Path(__file__).resolve().parent.parent.parent
+    dist_dir = repo_root / "renderer" / "dist"
+    if dist_dir.is_dir():
+        return dist_dir
+
+    node_bin = shutil.which("node")
+    if node_bin is None:
+        msg = (
+            "[red]Error:[/red] Node.js is required to build"
+            " the renderer. Install Node.js 20+ and retry."
+        )
+        _ERR.print(msg)
+        raise SystemExit(1) from None
+
+    _ERR.print("[dim]Building renderer (first run)…[/dim]")
+    renderer_dir = repo_root / "renderer"
+    try:
+        _ = subprocess.run(
+            ["npm", "ci"],  # noqa: S607
+            cwd=str(renderer_dir),
+            check=True,
+            capture_output=True,
+            timeout=120,
+        )
+        _ = subprocess.run(
+            ["npm", "run", "build"],  # noqa: S607
+            cwd=str(renderer_dir),
+            check=True,
+            capture_output=True,
+            timeout=120,
+        )
+    except subprocess.CalledProcessError as exc:
+        err_msg = exc.stderr.decode() if exc.stderr else str(exc)
+        _ERR.print(f"[red]Build failed:[/red] {err_msg}")
+        raise SystemExit(1) from None
+    except FileNotFoundError:
+        _ERR.print("[red]Error:[/red] npm not found. Install Node.js 20+ and retry.")
+        raise SystemExit(1) from None
+
+    if not dist_dir.is_dir():
+        msg = f"[red]Error:[/red] Build completed but dist/ not found at {dist_dir}"
+        _ERR.print(msg)
+        raise SystemExit(1) from None
+
+    return dist_dir
+
+
+@app.command()
+def view(  # noqa: PLR0913, PLR0917
+    gpx_path: Annotated[
+        Path,
+        typer.Argument(help="Path to the GPX file.", exists=True),
+    ],
+    no_terrain: Annotated[
+        bool,
+        typer.Option("--no-terrain", help="Disable terrain (flat ellipsoid)."),
+    ] = False,
+    no_browser: Annotated[
+        bool,
+        typer.Option("--no-browser", help="Don't open browser automatically."),
+    ] = False,
+    port: Annotated[
+        int,
+        typer.Option("--port", help="Server port (0 = random)."),
+    ] = 0,
+    theme: Annotated[
+        str,
+        typer.Option("--theme", help="Visual theme: dark or light."),
+    ] = "dark",
+    speed: Annotated[
+        float,
+        typer.Option("--speed", help="Initial playback speed (0.5, 1, 2, 4)."),
+    ] = 1.0,
+    height: Annotated[
+        float,
+        typer.Option("--height", help="Camera height above terrain (meters)."),
+    ] = 50.0,
+    token: Annotated[
+        str | None,
+        typer.Option("--token", help="Cesium Ion access token."),
+    ] = None,
+) -> None:
+    """Open an interactive 3D flythrough viewer for a GPX track."""
+    if theme not in {"dark", "light"}:
+        _ERR.print(f"[red]Error:[/red] Unknown theme: {theme!r} (use dark or light)")
+        raise SystemExit(1)
+
+    try:
+        track = parse_gpx_file(gpx_path)
+    except GPXParseError as exc:
+        _ERR.print(f"[red]Parse error:[/red] {exc}")
+        raise SystemExit(1) from None
+
+    sanitized = sanitize(track)
+
+    opts = ViewOptions(
+        theme=cast("Literal['dark', 'light']", theme),
+        no_terrain=no_terrain,
+        height_m=height,
+        ion_token=token,
+    )
+    payload_bytes = build_view_payload(sanitized, opts)
+    payload_json = payload_bytes.decode("utf-8")
+
+    dist_dir = _resolve_dist_dir()
+
+    server = ViewServer(dist_dir, payload_json)
+    bound_port = server.start(port=port)
+
+    url = f"http://127.0.0.1:{bound_port}/"
+    if speed != 1.0:
+        url += f"?speed={speed}"
+
+    _ERR.print(f"\n  [bold green]GPXFlythrough viewer running:[/bold green] {url}\n")
+
+    if not no_browser:
+        try:
+            _ = webbrowser.open(url)
+        except Exception:  # noqa: BLE001
+            _ERR.print("[dim]Could not open browser automatically.[/dim]")
+
+    try:
+        _signal.pause()
+    except (KeyboardInterrupt, SystemExit):
+        pass
+    finally:
+        server.stop()
+        _ERR.print("\nViewer stopped.")
