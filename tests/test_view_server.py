@@ -14,7 +14,7 @@ from gpxflythrough.viewer.server import ViewServer
 def dist_dir(tmp_path: Path) -> Path:
     """Create a minimal dist directory with index.html."""
     index_html = tmp_path / "index.html"
-    index_html.write_text(
+    _ = index_html.write_text(
         "<!DOCTYPE html><html><head></head><body>"
         + '<div id="cesiumContainer"></div>'
         + '<script type="module" src="/src/main.ts"></script>'
@@ -47,7 +47,7 @@ class TestViewServer:
             server.stop()
 
     def test_serves_static_files(self, dist_dir: Path) -> None:
-        (dist_dir / "test.js").write_text("console.log('hello');")
+        _ = (dist_dir / "test.js").write_text("console.log('hello');")
         server = ViewServer(dist_dir, "{}")
         port = server.start()
         try:
