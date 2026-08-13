@@ -1,12 +1,13 @@
 # GPXFlythrough
 
-Convert GPX tracks into interactive 3D flythrough visualizations.
+Convert GPX tracks into interactive 2D/3D flythrough visualizations.
 
 ## What It Does
 
 GPXFlythrough takes your GPS recording files (`.gpx`) and produces:
 
 - **Interactive 3D flythrough viewer** — a drone-like camera following your route over realistic terrain, with play/pause, speed control, and timeline scrubbing
+- **Interactive 2D map viewer** — a MapLibre-based flat map with track drawing animation, auto-follow camera, and the same playback controls
 - **Data overlays** — heart rate, speed, and elevation profile visualized alongside the route (coming in Phase 3)
 
 All rendering runs **locally** — no cloud uploads, no API keys required for basic usage.
@@ -18,8 +19,11 @@ git clone https://github.com/nick8592/GPXFlythrough.git
 cd GPXFlythrough
 uv sync
 
-# Set up the TypeScript renderer:
+```bash
+# Set up the TypeScript renderers:
 cd renderer
+npm ci
+cd ../renderer2d
 npm ci
 cd ..
 ```
@@ -43,23 +47,30 @@ gpxflythrough parse hike.gpx -o raw.json --no-sanitize
 
 # Open interactive 3D flythrough viewer
 gpxflythrough view hike.gpx
+
+# Open interactive 2D map viewer
+gpxflythrough view hike.gpx --mode 2d
 ```
 
 ### View Options
 
 | Flag | Values | Default |
 |------|--------|---------|
-| `--no-terrain` | Disable terrain (flat ellipsoid) | off |
-| `--no-browser` | Don't auto-open browser | off |
+| `--mode` | `2d`, `3d` | `3d` |
+| `--no-terrain` | Disable terrain (flat ellipsoid, 3D only) | off |
+| `--no-browser` | Don't open browser automatically | off |
 | `--theme` | `dark`, `light` | `dark` |
 | `--speed` | `0.5`, `1`, `2`, `4` | `1` |
-| `--height` | Camera height above terrain (m) | `50` |
+| `--height` | Camera height above terrain (meters, 3D only) | `50` |
 | `--port` | Server port (0 = random) | `0` |
-| `--token` | Cesium Ion access token | none |
+| `--token` | Cesium Ion access token (3D only) | none |
 
 ```bash
 # View without terrain (no API key needed)
 gpxflythrough view hike.gpx --no-terrain
+
+# View in 2D map mode
+gpxflythrough view hike.gpx --mode 2d
 
 # Start at 2x speed with light theme
 gpxflythrough view hike.gpx --speed 2 --theme light
@@ -105,7 +116,7 @@ Track segments are never bridged — if GPS recording was interrupted (tunnels, 
 ```
 GPXFlythrough/
 ├── src/gpxflythrough/          # Python data engine + CLI
-│   ├── cli.py                  # Typer CLI: parse, info, view
+│   ├── cli.py                  # Typer CLI: parse, info, view (--mode 2d|3d)
 │   ├── models.py               # Domain models (TrackData, SanitizedTrack, branded types)
 │   ├── parser/                 # GPX parsing (gpxpy wrapper)
 │   ├── sanitize/               # Outlier removal, gap detection, smoothing
@@ -113,7 +124,7 @@ GPXFlythrough/
 │   └── viewer/                 # Interactive viewer backend
 │       ├── payload.py           # ViewOptions + build_view_payload()
 │       └── server.py           # ViewServer (ThreadingHTTPServer + payload injection)
-├── renderer/                   # TypeScript browser-side renderer
+├── renderer/                   # TypeScript 3D renderer (CesiumJS)
 │   ├── src/
 │   │   ├── main.ts             # Entry: validate → viewer → terrain → camera → player → overlay
 │   │   ├── types/track.ts      # TrackRenderPayload schema types
@@ -131,9 +142,23 @@ GPXFlythrough/
 │   │   └── cesium.d.ts         # CesiumJS type declarations
 │   ├── index.html              # Mount point (cesiumContainer div)
 │   └── src/__tests__/          # Vitest tests (37 tests)
+├── renderer2d/                 # TypeScript 2D renderer (MapLibre GL JS)
+│   ├── src/
+│   │   ├── main.ts             # Entry: validate → MapLibre map → track layers → camera → player → overlay
+│   │   ├── types/track.ts      # TrackRenderPayload schema types (shared copy)
+│   │   ├── schema/track-render.ts  # validate() runtime checker (shared copy)
+│   │   ├── controller.ts       # CameraController interface (shared copy)
+│   │   ├── camera.ts           # MapCamera (pan/zoom + line-gradient animation)
+│   │   ├── player.ts           # Player state machine (shared copy)
+│   │   ├── track.ts            # Track GeoJSON layers + waypoint markers + position marker
+│   │   ├── ui/
+│   │   │   ├── playback-overlay.ts  # DOM playback controls (shared copy)
+│   │   │   └── playback-overlay.css
+│   ├── index.html              # Mount point (mapContainer div)
+│   └── src/__tests__/          # Vitest tests (35 tests)
 ├── tests/                      # Python tests (87 tests)
 ├── examples/                   # Sample GPX files
-└── .github/workflows/ci.yml   # CI: Python + renderer jobs
+└── .github/workflows/ci.yml   # CI: Python + renderer + renderer2d jobs
 ```
 
 ## Architecture
@@ -236,9 +261,9 @@ gantt
     section Done
     Phase 0 — Parsing & CLI          :done, p0, 0, 1
     Phase 1 — Interactive 3D Viewer   :done, p1, 1, 2
+    Phase 2 — 2D Map Viewer (MapLibre):done, p2, 2, 3
 
     section Next
-    Phase 2 — 2D Map Viewer (MapLibre): p2, 2, 3
     Phase 3 — Data Overlays           : p3, 3, 4
     Phase 4 — Camera Modes & Themes   : p4, 4, 5
 
@@ -251,8 +276,8 @@ gantt
   - `parse` and `info` commands, outlier removal, Savitzky-Golay smoothing, JSON/GeoJSON export
 - [x] **Phase 1** — Interactive 3D flythrough viewer
   - CesiumJS globe, FollowCamera, Player state machine, playback overlay (play/pause/seek/speed), Python HTTP server with payload injection
-- [ ] **Phase 2** — 2D map viewer (MapLibre GL JS)
-  - Add a MapLibre-based 2D renderer alongside CesiumJS, with shared Player/overlay architecture. Track drawing animation on a flat map with auto-follow camera. Reuse `TrackRenderPayload` schema.
+- [x] **Phase 2** — 2D map viewer (MapLibre GL JS)
+  - MapLibre-based 2D renderer alongside CesiumJS, with shared Player/overlay architecture. Track drawing animation on a flat map with auto-follow camera. `view --mode 2d` CLI flag. Reuses `TrackRenderPayload` schema.
 - [ ] **Phase 3** — Data overlays
   - Heart rate, speed, and elevation profile charts rendered alongside the track. Extend `TrackRenderPayload` with `overlays` config. Add overlay components to the playback UI.
 - [ ] **Phase 4** — Camera modes and visual themes
@@ -300,12 +325,20 @@ uv run ruff check src/           # lint (ALL rules)
 uv run ruff format --check src/  # format check
 uv run pytest tests/ -v          # run tests (87 tests)
 
-# Renderer (renderer/)
+# 3D Renderer (renderer/)
 cd renderer
 npm ci                           # install dependencies
 npm run typecheck                # TypeScript type check
 npm run lint                     # ESLint
 npm run test                     # Vitest (37 tests)
+npm run build                    # Vite production build → dist/
+
+# 2D Renderer (renderer2d/)
+cd renderer2d
+npm ci                           # install dependencies
+npm run typecheck                # TypeScript type check
+npm run lint                     # ESLint
+npm run test                     # Vitest (35 tests)
 npm run build                    # Vite production build → dist/
 ```
 
@@ -315,6 +348,7 @@ npm run build                    # Vite production build → dist/
 |-----------|-----------|
 | Data Engine | Python 3.13+, gpxpy, scipy, orjson, typer, rich |
 | 3D Renderer | CesiumJS |
+| 2D Renderer | MapLibre GL JS |
 | Interactive Playback | Vite + TypeScript |
 | Terrain | Copernicus DEM GLO-30 (via Cesium Ion) |
 | Video Export (Phase 5) | Puppeteer (CDP) → FFmpeg |
