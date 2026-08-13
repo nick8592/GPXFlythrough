@@ -228,17 +228,23 @@ When adding new fields, bump `schema_version` and update both `renderer/src/type
 ## Roadmap
 
 ```mermaid
-timeline
-    title GPXFlythrough Development Phases
-    section Completed
-        Phase 0 : GPX parsing, sanitization, CLI
-        Phase 1 : Interactive 3D flythrough viewer
-    section Upcoming
-        Phase 2 : 2D map viewer (MapLibre)
-        Phase 3 : Data overlays (HR, speed, elevation)
-        Phase 4 : Camera modes & visual themes
-        Phase 5 : Video export (Puppeteer + FFmpeg)
-        Phase 6 : Web app (upload, queue, sharing)
+gantt
+    title GPXFlythrough Phases
+    dateFormat X
+    axisFormat %s
+
+    section Done
+    Phase 0 — Parsing & CLI          :done, p0, 0, 1
+    Phase 1 — Interactive 3D Viewer   :done, p1, 1, 2
+
+    section Next
+    Phase 2 — 2D Map Viewer (MapLibre): p2, 2, 3
+    Phase 3 — Data Overlays           : p3, 3, 4
+    Phase 4 — Camera Modes & Themes   : p4, 4, 5
+
+    section Future
+    Phase 5 — Video Export            : p5, 5, 6
+    Phase 6 — Web App                 : p6, 6, 7
 ```
 
 - [x] **Phase 0** — GPX parsing, data sanitization, CLI skeleton
