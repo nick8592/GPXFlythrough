@@ -138,32 +138,37 @@ GPXFlythrough/
 
 ## Architecture
 
-```
-┌──────────────────────────────────────────────┐
-│                  CLI (Typer)                  │
-│   parse · info · view                        │
-└──────┬──────────────────────────┬────────────┘
-       │                         │
- ┌─────▼──────┐          ┌───────▼────────┐
- │  Python    │          │  TypeScript    │
- │  Data      │  JSON    │  Renderer      │
- │  Engine    │─────────▶│  (browser)     │
- │            │ (inline)  │                │
- │ • Parse    │          │ • CesiumJS 3D  │
- │ • Sanitize │          │ • FollowCamera │
- │ • Smooth   │          │ • Player (RAF)  │
- │ • Export   │          │ • Playback UI  │
- │ • Payload  │          │ • Theme        │
- │ • Server   │          │ • Schema check │
- └────────────┘          └───────┬────────┘
-                                 │
-                    ┌────────────┼────────────┐
-                    │            │             │
-              ┌─────▼────┐ ┌────▼─────┐ ┌─────▼──────┐
-              │ Browser   │ │ Video    │ │  Web App   │
-              │ Playback  │ │ Export   │ │  (future)  │
-              │ ✅ Done   │ │ (Phase 5)│ │  (Phase 6) │
-              └──────────┘ └──────────┘ └────────────┘
+```mermaid
+flowchart TB
+    CLI["CLI (Typer)<br/>parse · info · view"]
+
+    CLI --> PY
+    CLI --> TS
+
+    subgraph PY["Python Data Engine"]
+        direction TB
+        P1["Parse (gpxpy)"]
+        P2["Sanitize (Savitzky-Golay)"]
+        P3["Export (orjson)"]
+        P4["Payload Builder"]
+        P5["ViewServer"]
+    end
+
+    subgraph TS["TypeScript Renderer (browser)"]
+        direction TB
+        T1["CesiumJS 3D"]
+        T2["FollowCamera"]
+        T3["Player (RAF)"]
+        T4["Playback UI"]
+        T5["Theme"]
+        T6["Schema Check"]
+    end
+
+    PY -- "JSON<br/>(inline injection)" --> TS
+
+    TS --> BP["Browser Playback<br/>✅ Done"]
+    TS --> VE["Video Export<br/>(Phase 5)"]
+    TS --> WA["Web App<br/>(Phase 6)"]
 ```
 
 **Data Engine (Python)** — GPX parsing (`gpxpy`), GPS noise reduction (Savitzky-Golay filter), timestamp gap interpolation, and clean JSON/GeoJSON export (`orjson`). The `viewer/` module builds the `TrackRenderPayload` JSON and serves it via a `ThreadingHTTPServer` that injects the payload inline into the HTML.
@@ -172,33 +177,13 @@ GPXFlythrough/
 
 ## Data Flow
 
-```
- .gpx file
-    │
-    ▼
- ┌─────────────┐
- │  parse_gpx  │  gpxpy → TrackData
- └─────┬───────┘
-       │
-       ▼
- ┌─────────────┐
- │  sanitize   │  outlier removal, gap detection, smoothing
- └─────┬───────┘
-       │
-       ▼
- ┌──────────────────┐
- │ build_view_payload│  ViewOptions → orjson → TrackRenderPayload JSON
- └─────┬─────────────┘
-       │
-       ▼
- ┌──────────────────┐
- │   ViewServer     │  injects <script>globalThis.__trackData = {...}</script>
- └─────┬─────────────┘   into index.html before <script type="module">
-       │
-       ▼
- ┌──────────────────┐
- │  Browser         │  main.ts: validate() → Viewer → Camera → Player → Overlay
- └──────────────────┘
+```mermaid
+flowchart LR
+    GPX[".gpx file"] --> Parse["parse_gpx<br/>(gpxpy)"]
+    Parse --> Sanitize["sanitize<br/>(outlier removal,<br/>gap detection,<br/>smoothing)"]
+    Sanitize --> Payload["build_view_payload<br/>(ViewOptions → orjson → JSON)"]
+    Payload --> Server["ViewServer<br/>(injects &lt;script&gt;globalThis.__trackData&lt;/script&gt;)"]
+    Server --> Browser["Browser<br/>(validate → Viewer →<br/>Camera → Player → Overlay)"]
 ```
 
 ### Schema Contract (v1.0.0)
@@ -241,6 +226,20 @@ When adding new fields, bump `schema_version` and update both `renderer/src/type
 3D mode uses **Copernicus DEM GLO-30** (30m resolution, ±4m vertical accuracy) for realistic terrain rendering. Terrain tiles are fetched on-demand from Cesium Ion. Use `--no-terrain` for a flat ellipsoid that doesn't require an API token.
 
 ## Roadmap
+
+```mermaid
+timeline
+    title GPXFlythrough Development Phases
+    section Completed
+        Phase 0 : GPX parsing, sanitization, CLI
+        Phase 1 : Interactive 3D flythrough viewer
+    section Upcoming
+        Phase 2 : 2D map viewer (MapLibre)
+        Phase 3 : Data overlays (HR, speed, elevation)
+        Phase 4 : Camera modes & visual themes
+        Phase 5 : Video export (Puppeteer + FFmpeg)
+        Phase 6 : Web app (upload, queue, sharing)
+```
 
 - [x] **Phase 0** — GPX parsing, data sanitization, CLI skeleton
   - `parse` and `info` commands, outlier removal, Savitzky-Golay smoothing, JSON/GeoJSON export
