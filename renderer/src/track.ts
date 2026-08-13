@@ -1,5 +1,6 @@
 /** Build track entities (polyline + waypoints) in the Cesium viewer. */
 import type { TrackRenderPayload } from "./types/track.js";
+import { getPointAtTime } from "./camera.js";
 
 export function buildTrackEntity(
   viewer: Cesium.Viewer,
@@ -25,7 +26,6 @@ export function buildTrackEntity(
     });
   }
 
-  // Add waypoints as point entities
   for (const wp of payload.track.waypoints) {
     viewer.entities.add({
       position: Cesium.Cartesian3.fromDegrees(
@@ -49,4 +49,44 @@ export function buildTrackEntity(
       },
     });
   }
+}
+
+export interface PositionMarker {
+  setCurrentTime(ms: number): void;
+}
+
+export function buildPositionMarker(
+  viewer: Cesium.Viewer,
+  payload: TrackRenderPayload,
+): PositionMarker {
+  const segments = payload.track.segments;
+  const firstPoint = segments[0]?.points[0];
+  let currentTimeMs = 0;
+
+  viewer.entities.add({
+    position: new Cesium.CallbackProperty(() => {
+      const point = getPointAtTime(segments, currentTimeMs);
+      if (point === null) {
+        return Cesium.Cartesian3.fromDegrees(
+          firstPoint?.lon ?? 0,
+          firstPoint?.lat ?? 0,
+        );
+      }
+      return Cesium.Cartesian3.fromDegrees(point.lon, point.lat);
+    }, false),
+    point: {
+      pixelSize: 16,
+      color: Cesium.Color.CYAN,
+      outlineColor: Cesium.Color.WHITE,
+      outlineWidth: 3,
+      heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
+      disableDepthTestDistance: Number.POSITIVE_INFINITY,
+    },
+  });
+
+  return {
+    setCurrentTime(ms: number): void {
+      currentTimeMs = ms;
+    },
+  };
 }

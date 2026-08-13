@@ -70,7 +70,18 @@ declare namespace Cesium {
     add(entity: Record<string, unknown>): Entity;
   }
 
-  class Entity {}
+  class Entity {
+    position: Property;
+  }
+
+  class Property {}
+
+  class CallbackProperty extends Property {
+    constructor(
+      callback: () => unknown,
+      isConstant: boolean,
+    );
+  }
 
   class Cartesian3 {
     constructor(x?: number, y?: number, z?: number);
@@ -98,6 +109,7 @@ declare namespace Cesium {
     static RED: Color;
     static BLUE: Color;
     static GREEN: Color;
+    static CYAN: Color;
     static TRANSPARENT: Color;
     constructor(
       red: number,
@@ -126,6 +138,17 @@ declare namespace Cesium {
 
   class VerticalOrigin {
     static BOTTOM: number;
+    static CENTER: number;
+  }
+
+  class HorizontalOrigin {
+    static CENTER: number;
+  }
+
+  class HeightReference {
+    static NONE: number;
+    static CLAMP_TO_GROUND: number;
+    static RELATIVE_TO_GROUND: number;
   }
 
   class Ion {

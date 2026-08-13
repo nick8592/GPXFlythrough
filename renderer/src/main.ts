@@ -3,7 +3,7 @@ import { validate } from "./schema/track-render.js";
 import type { TrackRenderPayload } from "./types/track.js";
 import { createViewer } from "./viewer.js";
 import { loadTerrain } from "./terrain.js";
-import { buildTrackEntity } from "./track.js";
+import { buildTrackEntity, buildPositionMarker } from "./track.js";
 import { FollowCamera } from "./camera.js";
 import { Player } from "./player.js";
 import { applyTheme } from "./theme.js";
@@ -42,7 +42,12 @@ async function main(): Promise<void> {
     const durationMs = camera.getDurationMs();
     const player = new Player(camera, durationMs);
 
-    // 7. Read URL params for initial speed override
+    // 7. Build position marker and wire to player ticks
+    const marker = buildPositionMarker(viewer, payload);
+    player.onTick((ms) => marker.setCurrentTime(ms));
+    marker.setCurrentTime(0);
+
+    // 8. Read URL params for initial speed override
     const params = new URLSearchParams(window.location.search);
     const speedParam = params.get("speed");
     if (speedParam !== null) {
@@ -52,11 +57,11 @@ async function main(): Promise<void> {
       }
     }
 
-    // 8. Mount playback UI overlay
+    // 9. Mount playback UI overlay
     const overlay = createPlaybackOverlay(player);
     document.body.appendChild(overlay);
 
-    // 9. Set global references for debugging
+    // 10. Set global references for debugging
     globalThis.__viewer = viewer;
     globalThis.__player = player;
     globalThis.__rendererReady = true;
