@@ -50,15 +50,15 @@ export function buildTrackLayers(
         "line-join": "round",
       },
       paint: {
-        "line-width": 4,
+        "line-width": 6,
         "line-gradient": [
           "interpolate",
           ["linear"],
           ["line-progress"],
           0,
-          "rgba(255,255,255,0.15)",
+          "rgba(255,107,53,0.35)",
           1,
-          "rgba(255,255,255,0.15)",
+          "rgba(255,107,53,0.35)",
         ],
       },
     };
@@ -89,10 +89,10 @@ export function buildTrackLayers(
       type: "circle",
       source: sourceId,
       paint: {
-        "circle-radius": 6,
-        "circle-color": "#FFFFFF",
+        "circle-radius": 8,
+        "circle-color": "#FF6B35",
         "circle-stroke-color": "#000000",
-        "circle-stroke-width": 1.5,
+        "circle-stroke-width": 2,
       },
     };
     map.addLayer(circleLayer);
@@ -113,7 +113,7 @@ export function buildTrackLayers(
         paint: {
           "text-color": "#FFFFFF",
           "text-halo-color": "#000000",
-          "text-halo-width": 1.5,
+          "text-halo-width": 2,
         },
       };
       map.addLayer(labelLayer);
@@ -126,7 +126,7 @@ export interface PositionMarker {
 }
 
 /**
- * Add a position-marker layer (cyan dot) at the current playback position.
+ * Add a position-marker layer (orange dot) at the current playback position.
  * Returns an object whose `setCurrentTime(ms)` moves the marker.
  */
 export function buildPositionMarker(
@@ -158,8 +158,8 @@ export function buildPositionMarker(
     source: sourceId,
     type: "circle",
     paint: {
-      "circle-radius": 8,
-      "circle-color": "#00FFFF",
+      "circle-radius": 10,
+      "circle-color": "#FF6B35",
       "circle-stroke-color": "#FFFFFF",
       "circle-stroke-width": 3,
     },

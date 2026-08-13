@@ -30,9 +30,9 @@ export function getPointAtTime(
 }
 
 /** Color used for the "drawn" portion of each segment. */
-const DRAWN_COLOR = "#FFD700";
+const DRAWN_COLOR = "#FF6B35";
 /** Color used for the "undrawn" portion of each segment. */
-const UNDRAWN_COLOR = "rgba(255,255,255,0.15)";
+const UNDRAWN_COLOR = "rgba(255,107,53,0.35)";
 
 /** Layer ID for segment at index i. */
 function segmentLayerId(i: number): string {

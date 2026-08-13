@@ -16,11 +16,11 @@ export function buildTrackEntity(
     viewer.entities.add({
       polyline: {
         positions,
-        width: 4,
+        width: 6,
         clampToGround: true,
         material: new Cesium.PolylineGlowMaterialProperty({
-          glowPower: 0.2,
-          color: Cesium.Color.YELLOW.withAlpha(0.9),
+          glowPower: 0.15,
+          color: Cesium.Color.fromCssColorString("#FF6B35"),
         }),
       },
     });
@@ -34,18 +34,21 @@ export function buildTrackEntity(
         wp.ele ?? 0,
       ),
       point: {
-        pixelSize: 8,
-        color: Cesium.Color.WHITE,
+        pixelSize: 12,
+        color: Cesium.Color.fromCssColorString("#FF6B35"),
         outlineColor: Cesium.Color.BLACK,
-        outlineWidth: 1,
+        outlineWidth: 2,
+        disableDepthTestDistance: Number.POSITIVE_INFINITY,
       },
       label: {
         text: wp.name ?? "",
         font: "14px sans-serif",
         style: Cesium.LabelStyle.FILL_AND_OUTLINE,
-        outlineWidth: 2,
+        fillColor: Cesium.Color.WHITE,
+        outlineColor: Cesium.Color.BLACK,
+        outlineWidth: 3,
         verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
-        pixelOffset: new Cesium.Cartesian2(0, -10),
+        pixelOffset: new Cesium.Cartesian2(0, -14),
       },
     });
   }
@@ -75,8 +78,8 @@ export function buildPositionMarker(
       return Cesium.Cartesian3.fromDegrees(point.lon, point.lat);
     }, false),
     point: {
-      pixelSize: 16,
-      color: Cesium.Color.CYAN,
+      pixelSize: 20,
+      color: Cesium.Color.fromCssColorString("#FF6B35"),
       outlineColor: Cesium.Color.WHITE,
       outlineWidth: 3,
       heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
