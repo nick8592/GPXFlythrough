@@ -25,7 +25,7 @@ skip_if_no_example = pytest.mark.skipif(
 )
 
 
-@pytest.fixture()
+@pytest.fixture
 def dist_dir(tmp_path: Path) -> Path:
     """Create a minimal dist directory mimicking the Vite build output."""
     index_html = tmp_path / "index.html"
@@ -36,17 +36,13 @@ def dist_dir(tmp_path: Path) -> Path:
         + "</body></html>"
     )
     _ = (tmp_path / "assets").mkdir()
-    _ = (tmp_path / "assets" / "index.js").write_text(
-        'console.log("renderer bundle");'
-    )
+    _ = (tmp_path / "assets" / "index.js").write_text('console.log("renderer bundle");')
     return tmp_path
 
 
 class TestViewerE2E:
     @skip_if_no_example
-    def test_full_pipeline_with_real_gpx(
-        self, dist_dir: Path
-    ) -> None:
+    def test_full_pipeline_with_real_gpx(self, dist_dir: Path) -> None:
         track = parse_gpx_file(NANGANG_GPX)
         sanitized = sanitize(track)
 
@@ -70,9 +66,7 @@ class TestViewerE2E:
             server.stop()
 
     @skip_if_no_example
-    def test_payload_has_nangang_track_data(
-        self, dist_dir: Path
-    ) -> None:
+    def test_payload_has_nangang_track_data(self, dist_dir: Path) -> None:
         track = parse_gpx_file(NANGANG_GPX)
         sanitized = sanitize(track)
 
@@ -89,9 +83,7 @@ class TestViewerE2E:
             server.stop()
 
     @skip_if_no_example
-    def test_serves_static_assets(
-        self, dist_dir: Path
-    ) -> None:
+    def test_serves_static_assets(self, dist_dir: Path) -> None:
         track = parse_gpx_file(NANGANG_GPX)
         sanitized = sanitize(track)
         payload_bytes = build_view_payload(sanitized, ViewOptions())
@@ -100,9 +92,7 @@ class TestViewerE2E:
         server = ViewServer(dist_dir, payload_json)
         port = server.start()
         try:
-            response = urlopen(
-                f"http://127.0.0.1:{port}/assets/index.js"
-            )
+            response = urlopen(f"http://127.0.0.1:{port}/assets/index.js")
             content = response.read().decode("utf-8")
             assert "renderer bundle" in content
         finally:

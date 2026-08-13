@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import orjson
 
@@ -10,8 +10,8 @@ from gpxflythrough.models import (
     Latitude,
     Longitude,
     Meters,
-    SanitizedTrack,
     SanitizationStats,
+    SanitizedTrack,
     TrackData,
     TrackPoint,
     TrackSegment,
@@ -29,13 +29,13 @@ def _make_track(
                 latitude=Latitude(25.033),
                 longitude=Longitude(121.565),
                 elevation=Meters(120.0),
-                time=datetime(2025, 1, 15, 8, 0, 0, tzinfo=timezone.utc),
+                time=datetime(2025, 1, 15, 8, 0, 0, tzinfo=UTC),
             ),
             TrackPoint(
                 latitude=Latitude(25.034),
                 longitude=Longitude(121.566),
                 elevation=Meters(130.0),
-                time=datetime(2025, 1, 15, 8, 2, 0, tzinfo=timezone.utc),
+                time=datetime(2025, 1, 15, 8, 2, 0, tzinfo=UTC),
             ),
         ]
     track = TrackData(

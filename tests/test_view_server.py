@@ -10,7 +10,7 @@ import pytest
 from gpxflythrough.viewer.server import ViewServer
 
 
-@pytest.fixture()
+@pytest.fixture
 def dist_dir(tmp_path: Path) -> Path:
     """Create a minimal dist directory with index.html."""
     index_html = tmp_path / "index.html"
@@ -62,7 +62,7 @@ class TestViewServer:
         server = ViewServer(dist_dir, "{}")
         port = server.start()
         try:
-            with pytest.raises(Exception):  # noqa: PT018
+            with pytest.raises(Exception, match=""):  # noqa: PT011
                 urlopen(f"http://127.0.0.1:{port}/nonexistent.js")
         finally:
             server.stop()
@@ -71,5 +71,5 @@ class TestViewServer:
         server = ViewServer(dist_dir, "{}")
         port = server.start()
         server.stop()
-        with pytest.raises(Exception):
+        with pytest.raises(Exception, match=""):  # noqa: PT011
             urlopen(f"http://127.0.0.1:{port}/", timeout=1)
